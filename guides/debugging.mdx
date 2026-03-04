@@ -1,0 +1,693 @@
+---
+title: Debugging
+description: Troubleshooting compilation errors and debugging Shed Skin programs
+---
+
+Debugging Shed Skin programs involves understanding type inference errors, resolving compilation issues, and debugging the generated C++ code when necessary.
+
+## Common Compilation Errors
+
+### Type Inference Failures
+
+Shed Skin must infer concrete types for all variables. When it can't, you'll see errors.
+
+#### Error: "Variable has no type"
+
+```python
+# Problem: Function never called
+def calculate(x, y):
+    return x + y
+
+# Shed Skin doesn't know what types x and y are!
+```
+
+**Solution:** Call functions to establish types
+
+```python
+def calculate(x, y):
+    return x + y
+
+if __name__ == '__main__':
+    # Now Shed Skin knows: x and y are ints
+    print(calculate(5, 10))
+    # Or floats
+    print(calculate(2.5, 3.7))
+```
+
+<Tip>
+Always include a `if __name__ == '__main__'` block that exercises all code paths.
+</Tip>
+
+#### Error: "Incompatible types"
+
+```python
+# Problem: Variable assigned different types
+def process(use_float):
+    if use_float:
+        result = 3.14  # float
+    else:
+        result = "N/A"  # str - ERROR!
+    return result
+```
+
+**Solution:** Keep types consistent
+
+```python
+# Option 1: Use same type
+def process(use_float):
+    if use_float:
+        result = 3.14
+    else:
+        result = 0.0  # Also float
+    return result
+
+# Option 2: Split into separate functions
+def process_float(value):
+    return value * 3.14
+
+def process_string(text):
+    return text.upper()
+```
+
+#### Error: "Cannot mix types in collection"
+
+```python
+# Problem: Mixed-type list
+data = [1, 2.5, "three"]  # ERROR!
+
+# Problem: Mixed-type dict values
+config = {
+    'timeout': 30,      # int
+    'host': 'localhost' # str - ERROR!
+}
+```
+
+**Solution:** Use classes for heterogeneous data
+
+```python
+class Config:
+    def __init__(self):
+        self.timeout = 30
+        self.host = 'localhost'
+
+config = Config()
+```
+
+### Module Import Errors
+
+#### Error: "Cannot locate module"
+
+```python
+import mymodule  # ERROR: Can't find mymodule.py
+```
+
+**Solutions:**
+
+<Steps>
+
+### Check File Location
+
+Ensure the module is in the same directory or in a known location:
+
+```bash
+ls
+# main.py
+# mymodule.py  ← Must be present
+```
+
+### Use -L Flag for Custom Paths
+
+```bash
+shedskin build -L /path/to/modules main
+```
+
+### Check Module Structure
+
+For packages, ensure `__init__.py` exists:
+
+```
+mypackage/
+    __init__.py  ← Required
+    module1.py
+    module2.py
+```
+
+</Steps>
+
+#### Error: "Unsupported module"
+
+```python
+import pandas  # ERROR: Not supported by Shed Skin
+```
+
+**Solution:** Use supported modules only
+
+See [Supported Modules](/library/supported-modules) for the list of supported modules. For unsupported modules:
+
+1. Create an extension module (using `-e` flag)
+2. Import it in pure Python code
+3. Use the unsupported library in the Python code
+
+```python
+# fast_module.py - Compiled with Shed Skin
+def compute_intensive_task(data):
+    result = []
+    for x in data:
+        # Expensive computation
+        result.append(x ** 2 + x * 3.14)
+    return result
+
+if __name__ == '__main__':
+    compute_intensive_task([1.0, 2.0, 3.0])
+```
+
+```python
+# main.py - Pure Python with pandas
+import pandas as pd
+import fast_module  # Compiled extension
+
+df = pd.read_csv('data.csv')
+processed = fast_module.compute_intensive_task(df['values'].tolist())
+df['processed'] = processed
+```
+
+### None Type Errors
+
+#### Error: "Cannot mix None with scalar type"
+
+```python
+# Problem: None with int
+x = 10
+if something:
+    x = None  # ERROR!
+
+# Problem: Optional scalar parameter
+def process(threshold=None):  # ERROR if called with int!
+    pass
+process(42)
+```
+
+**Solution:** Use sentinel values for scalars
+
+```python
+# Use -1 or another sentinel
+x = 10
+if something:
+    x = -1  # Valid sentinel
+
+def process(threshold=-1):
+    if threshold == -1:
+        threshold = 100  # Default
+    # ... use threshold
+
+if __name__ == '__main__':
+    process(42)
+    process(-1)
+```
+
+<Warning>
+None can only be mixed with objects, lists, and other non-scalar types.
+</Warning>
+
+## Debugging Type Inference
+
+### Use Analyze Command
+
+Check for errors without generating code:
+
+```bash
+shedskin analyze myprogram.py
+```
+
+This validates:
+- Type consistency
+- Module imports
+- Supported features
+
+### Generate Annotated Source
+
+See what types Shed Skin inferred:
+
+```bash
+shedskin translate -a myprogram
+```
+
+This creates `myprogram.ss.py` with type annotations:
+
+```python
+# Original
+def calculate(x, y):
+    result = x + y
+    return result
+
+# Annotated (myprogram.ss.py)
+def calculate(x, y):  # x: int, y: int → int
+    result = x + y    # result: int
+    return result
+```
+
+### Enable Debug Output
+
+Get detailed type inference information:
+
+```bash
+shedskin translate -d 1 myprogram  # Level 1 debugging
+shedskin translate -d 2 myprogram  # Level 2 (more verbose)
+```
+
+## C++ Compilation Errors
+
+### Missing Dependencies
+
+#### Error: "gc.h: No such file"
+
+```
+fatal error: gc.h: No such file or directory
+```
+
+**Solution:** Install Boehm GC development files
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install libgc-dev
+
+# Fedora/RedHat
+sudo dnf install gc-devel
+
+# macOS
+brew install bdw-gc
+```
+
+#### Error: "pcre2.h: No such file"
+
+**Solution:** Install PCRE2 development files
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install libpcre2-dev
+
+# Fedora/RedHat
+sudo dnf install pcre2-devel
+
+# macOS
+brew install pcre2
+```
+
+#### Error: "Python.h: No such file"
+
+Only for extension modules (`-e` flag):
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install python3-dev
+
+# Fedora/RedHat
+sudo dnf install python3-devel
+```
+
+### Template/Syntax Errors
+
+Sometimes the generated C++ has issues:
+
+```
+error: no matching function for call to 'max'
+```
+
+**Causes:**
+- Type inference created invalid type combination
+- Edge case in code generation
+
+**Solution:** Simplify the problematic code
+
+```python
+# Before: Complex expression
+result = max([func(x) for x in data if x > 0], default=0)
+
+# After: Break it down
+valid_data = [x for x in data if x > 0]
+processed = [func(x) for x in valid_data]
+if processed:
+    result = max(processed)
+else:
+    result = 0
+```
+
+## Runtime Debugging
+
+### Segmentation Faults
+
+Segfaults usually indicate:
+
+1. **Null pointer dereference** (accessing None)
+2. **Invalid array access** (especially with `--nobounds`)
+3. **Stack overflow** (deep recursion)
+
+<Steps>
+
+### Reproduce with Python
+
+First, verify the Python version works:
+
+```bash
+python myprogram.py
+```
+
+If Python crashes too, fix the Python code first.
+
+### Rebuild Without Optimizations
+
+Remove safety-disabling flags:
+
+```bash
+# Don't use --nobounds or --nowrap
+shedskin build myprogram
+```
+
+If it works now, the issue is bounds-related.
+
+### Use GDB
+
+Debug the C++ binary:
+
+```bash
+shedskin translate myprogram
+cd build/
+g++ -g -O0 myprogram.cpp -o myprogram -lgc -lpcre2-8
+gdb ./myprogram
+```
+
+In GDB:
+```
+(gdb) run
+# Program crashes
+(gdb) backtrace  # See where it crashed
+(gdb) frame 0    # Inspect the crash location
+(gdb) print variable_name  # Inspect variables
+```
+
+### Add Debug Output
+
+Insert print statements:
+
+```python
+def process(data):
+    print("Processing", len(data), "items")
+    for i, item in enumerate(data):
+        print(f"Item {i}: {item}")
+        result = compute(item)
+        print(f"Result: {result}")
+    return result
+```
+
+</Steps>
+
+### Incorrect Results
+
+If compiled code produces different output than Python:
+
+#### Check Integer Overflow
+
+```python
+# With default int32
+x = 2_000_000_000
+y = x * 2  # Overflow!
+
+# Solution: Use --int64
+```
+
+```bash
+shedskin build --int64 myprogram
+```
+
+#### Check Evaluation Order
+
+<Warning>
+Argument evaluation order differs between Python and C++.
+</Warning>
+
+```python
+# Problem: Depends on evaluation order
+count = 0
+def get_next():
+    global count
+    count += 1
+    return count
+
+print(get_next(), get_next())  # Order undefined!
+```
+
+**Solution:** Make order explicit
+
+```python
+count = 0
+def get_next():
+    global count
+    count += 1
+    return count
+
+a = get_next()
+b = get_next()
+print(a, b)  # Now deterministic
+```
+
+#### Check Float Precision
+
+With `-ffast-math`, floating-point results may differ slightly:
+
+```bash
+# Exact IEEE floating-point
+shedskin build myprogram
+
+# Fast but less precise
+echo "-O3 -ffast-math" > FLAGS
+shedskin build myprogram
+```
+
+### Memory Issues
+
+Use Valgrind to detect memory problems:
+
+```bash
+shedskin build myprogram
+valgrind --leak-check=full build/myprogram
+```
+
+For extension modules, disable GC first:
+
+```bash
+shedskin build -e --nogc mymodule
+valgrind --leak-check=full python main.py
+```
+
+## Extension Module Issues
+
+### Import Fails
+
+```python
+>>> import mymodule
+ImportError: libgc.so.1: cannot open shared object file
+```
+
+**Solution:** Check library path
+
+```bash
+# Find missing libraries
+ldd build/mymodule.so
+
+# Add to LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+python
+>>> import mymodule  # Should work now
+```
+
+### Type Conversion Errors
+
+```python
+>>> import mymodule
+>>> mymodule.process("test")
+Segmentation fault
+```
+
+**Cause:** Type mismatch between Python call and C++ expectation
+
+**Solution:** Check what types the function expects
+
+```bash
+# Generate annotated source
+shedskin translate -a -e mymodule
+cat mymodule.ss.py  # Check parameter types
+```
+
+Ensure Python calls match:
+
+```python
+# If function expects list of ints
+mymodule.process([1, 2, 3])  # Correct
+mymodule.process("123")      # Wrong!
+```
+
+### Global Variable Issues
+
+```python
+# mymodule.py
+COUNTER = 0
+
+def increment():
+    global COUNTER
+    COUNTER += 1
+
+def get_counter():
+    return COUNTER
+```
+
+```python
+>>> import mymodule
+>>> mymodule.increment()
+>>> mymodule.COUNTER  # Still 0!
+```
+
+**Cause:** Globals are converted once at initialization
+
+**Solution:** Use getter functions
+
+```python
+>>> mymodule.increment()
+>>> mymodule.get_counter()  # Returns 1
+```
+
+## Debugging Workflow
+
+<Steps>
+
+### Verify Python Code
+
+Ensure the Python version works correctly:
+
+```bash
+python myprogram.py
+```
+
+### Check Compatibility
+
+Run analysis:
+
+```bash
+shedskin analyze myprogram.py
+```
+
+Fix any errors reported.
+
+### Compile Without Optimizations
+
+Build in debug mode:
+
+```bash
+shedskin build myprogram
+```
+
+Test the compiled version:
+
+```bash
+build/myprogram
+```
+
+### Compare Outputs
+
+Verify identical behavior:
+
+```bash
+python myprogram.py > python_output.txt
+build/myprogram > cpp_output.txt
+diff python_output.txt cpp_output.txt
+```
+
+### Add Optimizations Gradually
+
+Once it works, add optimizations:
+
+```bash
+# Add --nobounds
+shedskin build --nobounds myprogram
+build/myprogram  # Test
+
+# Add --nowrap
+shedskin build --nobounds --nowrap myprogram
+build/myprogram  # Test
+```
+
+### Profile and Optimize
+
+See [Optimization guide](/guides/optimization) for performance tuning.
+
+</Steps>
+
+## Common Workarounds
+
+### Block Comments for Incompatible Code
+
+Exclude code from compilation:
+
+```python
+print("Results:", results)
+
+#{
+import matplotlib.pyplot as plt
+plt.plot(results)
+plt.show()
+#}
+```
+
+The visualization code runs in Python but is ignored by Shed Skin.
+
+### Separate Test Code
+
+Use separate test files:
+
+```python
+# mymodule.py - compilable
+def compute(data):
+    return [x * 2 for x in data]
+
+if __name__ == '__main__':
+    print(compute([1.0, 2.0, 3.0]))
+```
+
+```python
+# test_mymodule.py - Python only
+import mymodule
+import pytest
+
+def test_compute():
+    assert mymodule.compute([1, 2, 3]) == [2, 4, 6]
+```
+
+### Type Assertion Comments
+
+Add comments documenting expected types:
+
+```python
+def process(data, threshold):
+    # data: list[float]
+    # threshold: float
+    # returns: list[float]
+    return [x for x in data if x > threshold]
+```
+
+While Shed Skin ignores these, they help you maintain type consistency.
+
+## Getting Help
+
+If you encounter issues:
+
+1. **Check documentation** - Review [restrictions](/introduction#restrictions)
+2. **Search examples** - Look for similar code in `/examples/`
+3. **Report bugs** - File issues at https://github.com/shedskin/shedskin/issues
+4. **Ask questions** - Join the mailing list
+
+<Tip>
+When reporting bugs, include:
+- Your Shed Skin version (`shedskin --version`)
+- Minimal reproducible example
+- Full error message
+- Platform (OS, Python version)
+</Tip>

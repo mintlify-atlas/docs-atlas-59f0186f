@@ -1,0 +1,369 @@
+---
+title: Writing Compatible Code
+description: Best practices for writing Python code that compiles successfully with Shed Skin
+---
+
+Shed Skin only supports a restricted subset of Python. This guide will help you write or refactor Python code to be compatible with Shed Skin's static typing requirements.
+
+## Understanding Static Typing
+
+Shed Skin uses type inference to determine the implicit types in your Python code. The key requirement: **every variable must have a single, static type throughout its lifetime**.
+
+<Warning>
+Variables cannot change type during execution. Once a variable is assigned a value of a certain type, it must maintain that type.
+</Warning>
+
+### Common Type Errors
+
+```python
+# Bad: Variable changes type
+a = 1
+a = '1'  # Error: a was int, now str
+
+# Good: Variable maintains type
+a = 1
+a = 2
+```
+
+```python
+# Bad: Mixed-type collections
+data = [1, 2.5, 'abc']  # Error: int, float, and str
+items = [3, [1, 2]]     # Error: int and list
+
+# Good: Homogeneous collections
+integers = [1, 2, 3]
+floats = [1.0, 2.5, 3.7]
+strings = ['apple', 'banana', 'cherry']
+nested = [[10.3, -2.0], [1.5, 2.3], []]
+```
+
+## Step-by-Step Refactoring Guide
+
+<Steps>
+
+### Remove Dynamic Features
+
+Shed Skin cannot compile code that uses dynamic Python features:
+
+```python
+# Remove these:
+eval("x + 1")
+getattr(obj, 'method_name')
+hasattr(obj, 'attribute')
+isinstance(x, int)
+```
+
+### Fix Mixed-Type Collections
+
+Identify and separate mixed-type data structures:
+
+```python
+# Before
+config = {'host': 'localhost', 'port': 8080, 'enabled': True}
+
+# After: Use a class instead
+class Config:
+    def __init__(self):
+        self.host = 'localhost'
+        self.port = 8080
+        self.enabled = True
+
+config = Config()
+```
+
+### Handle None Carefully
+
+`None` can only be mixed with non-scalar types:
+
+```python
+# Bad: None with scalar
+x = 1
+x = None  # Error!
+
+def process(value=None):  # Error: value could be int or None
+    pass
+process(42)
+
+# Good: None with objects/lists
+items = [1, 2, 3]
+items = None  # OK
+
+class Data:
+    pass
+
+data = Data()
+data = None  # OK
+
+# Good: Use sentinel values for scalars
+def process(value=-1):  # Use special value instead of None
+    if value == -1:
+        return
+    # process value
+```
+
+### Replace Unsupported Features
+
+Rewrite code to avoid unsupported features:
+
+```python
+# Bad: Variable arguments
+def func(*args, **kwargs):
+    pass
+
+# Good: Fixed arguments
+def func(a, b, c):
+    pass
+
+# Bad: Nested functions
+def outer():
+    def inner():
+        pass
+    return inner
+
+# Good: Module-level functions
+def helper():
+    pass
+
+def outer():
+    return helper
+
+# Bad: Method reference
+callback = self.method_name
+
+# Good: Function reference
+def method_wrapper(x):
+    return self.method_name(x)
+
+callback = method_wrapper
+```
+
+### Use Class Attributes Correctly
+
+Always access class attributes via the class name:
+
+```python
+class MyClass:
+    class_var = 42
+    
+    def method(self):
+        # Bad
+        x = self.class_var
+        
+        # Good
+        x = MyClass.class_var
+        
+    @staticmethod
+    def static_method():
+        return MyClass.class_var
+```
+
+</Steps>
+
+## Common Pitfalls and Solutions
+
+### Dictionary Type Consistency
+
+<Tip>
+Dictionary values must all be the same type, but keys and values can differ.
+</Tip>
+
+```python
+# Good: Consistent value types
+scores = {'alice': 95, 'bob': 87, 'charlie': 92}
+
+# Bad: Mixed value types
+data = {'name': 'Alice', 'age': 30, 'scores': [95, 87]}  # Error!
+
+# Solution: Use a class
+class Person:
+    def __init__(self):
+        self.name = ''
+        self.age = 0
+        self.scores = [0]
+
+person = Person()
+person.name = 'Alice'
+person.age = 30
+person.scores = [95, 87]
+```
+
+### Tuple Length and Types
+
+```python
+# Good: Tuples with 2 mixed types
+point = (10, "label")  # OK: pairs can be mixed
+data = (1, [1, 2, 3])  # OK
+
+# Bad: Longer mixed tuples
+record = (1, 'name', 3.14, [1, 2])  # Error: length > 2
+
+# Solution: Use a class for complex tuples
+class Record:
+    def __init__(self, id, name, value, items):
+        self.id = id
+        self.name = name
+        self.value = value
+        self.items = items
+```
+
+### Integer and Float Mixing
+
+<Tip>
+Integers and floats can usually be mixed - integers become floats automatically.
+</Tip>
+
+```python
+# This usually works fine
+values = [1, 2.5, 3, 4.7]  # Becomes list of floats
+result = 10 / 3  # Float division
+calc = 5 + 2.5  # Mixed arithmetic
+```
+
+### String and Unicode Limitations
+
+<Warning>
+Shed Skin has limited unicode support (1-byte characters only).
+</Warning>
+
+```python
+# OK: ASCII strings
+text = "Hello, World!"
+
+# May not work: Multi-byte unicode
+emoji = "Hello 👋"  # Limited support
+
+# Use byte strings when needed
+data = b"binary data"
+```
+
+## Testing for Compatibility
+
+<Steps>
+
+### Add Type Hints Through Usage
+
+Ensure all code paths are executed to enable type inference:
+
+```python
+def calculate(x, y):
+    return x + y
+
+def process_list(items):
+    return [x * 2 for x in items]
+
+if __name__ == '__main__':
+    # Call functions with concrete types
+    print(calculate(5, 10))
+    print(calculate(2.5, 3.7))
+    print(process_list([1, 2, 3]))
+    print(process_list([1.5, 2.5]))
+```
+
+### Use Analyze Command
+
+Validate your code before compilation:
+
+```bash
+shedskin analyze myprogram.py
+```
+
+### Compile and Test
+
+Build your program and verify it works:
+
+```bash
+shedskin build myprogram
+build/myprogram
+```
+
+</Steps>
+
+## Compatibility Checklist
+
+Before attempting to compile with Shed Skin:
+
+- [ ] All variables maintain a single type
+- [ ] Collections are homogeneous (same type elements)
+- [ ] No `eval`, `getattr`, `isinstance`, etc.
+- [ ] No `*args` or `**kwargs`
+- [ ] No nested functions or closures
+- [ ] Class attributes accessed via class name
+- [ ] Function references (not method references)
+- [ ] `None` only with non-scalar types
+- [ ] No multiple inheritance
+- [ ] Test code calls all functions with concrete types
+
+## Example Refactoring
+
+Here's a complete before/after example:
+
+```python
+# Before: Not compatible
+def process_data(items, config=None):
+    if config is None:
+        config = {'threshold': 10}
+    
+    results = []
+    for item in items:
+        if hasattr(item, 'value'):
+            val = getattr(item, 'value')
+        else:
+            val = item
+        
+        if val > config['threshold']:
+            results.append(val)
+    return results
+
+# After: Compatible
+class Config:
+    def __init__(self):
+        self.threshold = 10
+
+def get_value(item):
+    # Assume item is always a number
+    return item
+
+def process_data(items, threshold):
+    results = []
+    for item in items:
+        val = get_value(item)
+        if val > threshold:
+            results.append(val)
+    return results
+
+if __name__ == '__main__':
+    data = [5, 15, 8, 20, 3]
+    config = Config()
+    result = process_data(data, config.threshold)
+    print(result)
+```
+
+## Real-World Example
+
+The nbody.py example demonstrates good Shed Skin practices:
+
+```python
+class body:
+    pass
+
+def advance(bodies, dt):
+    for b in bodies:
+        b.x += dt/2 * b.vx
+        b.y += dt/2 * b.vy
+        b.z += dt/2 * b.vz
+    # ... rest of computation
+
+# Create instances with all attributes
+sun = body()
+sun.x = sun.y = sun.z = 0.0
+sun.vx = sun.vy = sun.vz = 0.0
+sun.mass = 4 * 3.14159 * 3.14159
+
+if __name__ == '__main__':
+    bodies = [sun, jupiter, saturn, uranus, neptune]
+    advance(bodies, 0.01)
+```
+
+<Tip>
+Study the examples in the Shed Skin repository for more patterns and techniques.
+</Tip>

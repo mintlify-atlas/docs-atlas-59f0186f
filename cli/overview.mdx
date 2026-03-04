@@ -1,0 +1,156 @@
+---
+title: CLI Overview
+description: Command-line interface reference for Shed Skin Python-to-C++ compiler
+---
+
+Shed Skin provides a command-line interface for translating, building, and running Python programs compiled to C++.
+
+## Available Commands
+
+Shed Skin offers the following subcommands:
+
+- **`build`** - Translate and build Python module using CMake (recommended)
+- **`translate`** - Translate Python module to C++ with Makefile generation
+- **`run`** - Translate, build, and run the module in one step
+- **`analyze`** - Analyze and validate Python module without code generation
+- **`runtests`** - Run the Shed Skin test suite
+
+## Basic Usage
+
+```bash
+shedskin <command> [options] <module.py>
+```
+
+If no command is specified, `translate` is used by default:
+
+```bash
+# These are equivalent
+shedskin myprogram.py
+shedskin translate myprogram.py
+```
+
+## Quick Start Examples
+
+### Build an executable
+
+```bash
+shedskin build myprogram.py
+```
+
+This will:
+1. Analyze your Python code
+2. Generate C++ source files
+3. Create CMake build configuration
+4. Compile to an executable in `build/`
+
+### Build and run immediately
+
+```bash
+shedskin run myprogram.py
+```
+
+### Generate an extension module
+
+```bash
+shedskin build --extmod mymodule.py
+```
+
+This creates a Python extension module that can be imported from regular Python.
+
+### Translate to C++ only
+
+```bash
+shedskin translate myprogram.py
+```
+
+Generates C++ files and Makefile without compiling.
+
+## Common Options
+
+These options work with most commands:
+
+<ParamField path="-o, --outputdir" type="string">
+  Specify output directory for generated files (default: current directory)
+</ParamField>
+
+<ParamField path="-e, --extmod" type="boolean">
+  Generate a Python extension module instead of a standalone executable
+</ParamField>
+
+<ParamField path="-b, --nobounds" type="boolean">
+  Disable bounds checking for better performance
+</ParamField>
+
+<ParamField path="-w, --nowrap" type="boolean">
+  Disable wrap-around checking for negative indices
+</ParamField>
+
+<ParamField path="-s, --silent" type="boolean">
+  Silent mode - only show warnings
+</ParamField>
+
+<ParamField path="-d, --debug" type="integer">
+  Set debug level (1-3). Level 3 enables detailed iterative flow analysis logging
+</ParamField>
+
+## Workflow Comparison
+
+### CMake Workflow (Recommended)
+
+```bash
+# Modern build system with better dependency management
+shedskin build myprogram.py
+./build/myprogram
+```
+
+### Makefile Workflow (Traditional)
+
+```bash
+# Generates Makefile for manual compilation
+shedskin translate myprogram.py
+make
+./myprogram
+```
+
+## Output Structure
+
+After compilation, Shed Skin creates:
+
+```
+project/
+├── myprogram.py          # Your source file
+├── myprogram.cpp         # Generated C++ implementation
+├── myprogram.hpp         # Generated C++ header
+├── build/                # CMake build directory
+│   └── myprogram         # Compiled executable
+└── Makefile              # Generated makefile (translate command)
+```
+
+## Getting Help
+
+For detailed information on any command:
+
+```bash
+shedskin --help
+shedskin build --help
+shedskin translate --help
+```
+
+## Version Information
+
+Shed Skin displays version and copyright information on startup:
+
+```
+*** SHED SKIN Python-to-C++ Compiler 0.9.12 ***
+Copyright 2005-2026 Mark Dufour and contributors; License GNU GPL version 3
+```
+
+## Python Version Requirements
+
+Shed Skin supports Python 3.8 through 3.14. The compiler will exit with an error if run with an unsupported Python version.
+
+## Next Steps
+
+- Learn about the [build command](/cli/build) for modern CMake-based compilation
+- Explore the [translate command](/cli/translate) for traditional Makefile workflow
+- Review all [command-line options](/cli/options) for optimization and configuration

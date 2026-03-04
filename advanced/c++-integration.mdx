@@ -1,0 +1,419 @@
+---
+title: "C++ Integration"
+description: "Understanding generated C++ code and integration with C++ projects"
+---
+
+## Overview
+
+Shed Skin translates Python code into standalone C++ code that can be compiled and integrated into C++ projects. Understanding the generated code structure helps with optimization, debugging, and integration.
+
+## Generated Code Structure
+
+For a Python module `mymodule.py`, Shed Skin generates:
+
+- `mymodule.hpp` - Header file with declarations
+- `mymodule.cpp` - Implementation file with definitions
+
+The generated code uses C++ templates, classes, and the Shed Skin runtime library.
+
+### Header File Structure
+
+```cpp
+#ifndef __MYMODULE_HPP
+#define __MYMODULE_HPP
+
+using namespace __shedskin__;
+namespace __mymodule__ {
+
+// Forward declarations
+class MyClass;
+
+// Global variable declarations  
+extern str *my_global;
+
+// Function declarations
+int my_function(int x);
+
+// Class definitions
+class MyClass : public pyobj {
+public:
+    int value;
+    MyClass() { this->__class__ = cl_MyClass; }
+    int method(int x);
+};
+
+} // module namespace
+#endif
+```
+
+**Key points:**
+- Namespace `__mymodule__` wraps all module contents
+- Classes inherit from `pyobj` base class
+- Template instantiations for polymorphic types
+
+### Implementation File Structure  
+
+```cpp
+#include "builtin.hpp"
+
+namespace __mymodule__ {
+
+// Global variable definitions
+str *my_global;
+
+// Function definitions
+int my_function(int x) {
+    return x * 2;
+}
+
+// Method definitions  
+int MyClass::method(int x) {
+    return this->value + x;
+}
+
+// Module initialization
+void __init() {
+    __name__ = new str("mymodule");
+    my_global = new str("hello");
+}
+
+} // module namespace
+```
+
+**Implementation:** The code generation happens in `shedskin/cpp.py` via the `GenerateVisitor` class.
+
+## Type Mappings
+
+Python types map to C++ types as follows:
+
+| Python Type | C++ Type |
+|------------|----------|
+| `int` | `__ss_int` (typically `long long`) |
+| `float` | `double` |
+| `str` | `str *` |
+| `list[int]` | `list<__ss_int> *` |
+| `dict[str, int]` | `dict<str *, __ss_int> *` |
+| `tuple[int, str]` | `tuple2<__ss_int, str *> *` |
+| `bool` | `__ss_bool` |
+| Custom classes | `ClassName *` |
+
+Most types are heap-allocated and use pointers, with automatic memory management via the Boehm GC.
+
+## Boehm Garbage Collector Integration
+
+Shed Skin uses the Boehm-Demers-Weiser conservative garbage collector for automatic memory management.
+
+### Memory Allocation
+
+All heap allocations go through GC-aware allocators:
+
+```cpp
+// Creating a new object
+MyClass *obj = new MyClass();
+
+// Creating a list
+list<int> *lst = new list<int>(3, 1, 2, 3);
+
+// Creating a string  
+str *s = new str("hello");
+```
+
+The `new` operator is overridden to use `GC_malloc()` instead of standard `malloc()`.
+
+### GC Configuration
+
+The garbage collector is initialized in `builtin.cpp:__shedskin__::__start()`:
+
+```cpp
+void __start(void (*initfunc)()) {
+#ifdef __SS_GC_STATS
+    GC_enable_incremental();
+#endif
+    GC_INIT();
+    // ...
+}
+```
+
+**Tuning GC behavior:**
+
+```cpp
+// In your C++ code before calling Shed Skin functions:
+#include <gc.h>
+
+// Set initial heap size (in bytes)  
+GC_set_max_heap_size(1024 * 1024 * 100); // 100 MB
+
+// Disable GC temporarily for performance
+GC_disable();
+performance_critical_code();
+GC_enable();
+
+// Force collection
+GC_gcollect();
+```
+
+### Disabling GC
+
+For specialized use cases, compile without GC:
+
+```bash
+shedskin --nogc myprogram.py
+```
+
+This generates code using manual memory management. **Warning:** Memory leaks are possible without GC.
+
+## Calling Conventions
+
+### Calling Shed Skin from C++
+
+To use Shed Skin generated code from C++:
+
+1. **Include the module header:**
+```cpp
+#include "mymodule.hpp"
+```
+
+2. **Initialize the Shed Skin runtime:**
+```cpp
+int main() {
+    __shedskin__::__init();  // Initialize runtime
+    __mymodule__::__init();  // Initialize module
+    
+    // Call Shed Skin functions
+    int result = __mymodule__::my_function(42);
+    
+    return 0;
+}
+```
+
+3. **Handle Shed Skin types:**
+```cpp
+// Working with strings
+__shedskin__::str *s = new __shedskin__::str("hello");
+std::cout << s->c_str() << std::endl;
+
+// Working with lists
+list<int> *nums = new list<int>(3, 1, 2, 3);
+for(int i = 0; i < nums->__len__(); i++) {
+    std::cout << nums->__getitem__(i) << std::endl;
+}
+```
+
+### Calling C++ from Shed Skin
+
+Extend Shed Skin with custom C++ code:
+
+1. **Create a builtin module stub** in `~/.shedskin/mycpp.py`:
+```python
+class MyClass:
+    def __init__(self): pass
+    def process(self, x: int) -> int: pass
+```
+
+2. **Implement in C++** as `mycpp.cpp` and `mycpp.hpp`:
+```cpp
+// mycpp.hpp
+namespace __mycpp__ {
+    class MyClass : public pyobj {
+    public:
+        __ss_int process(__ss_int x);
+    };
+}
+
+// mycpp.cpp  
+__ss_int MyClass::process(__ss_int x) {
+    // Your C++ implementation
+    return x * x;
+}
+```
+
+3. **Use in Python code:**
+```python
+import mycpp
+
+obj = mycpp.MyClass()
+result = obj.process(10)
+```
+
+## Virtual Method Tables
+
+For class hierarchies with inheritance, Shed Skin generates virtual method tables:
+
+```cpp
+class Base : public pyobj {
+public:
+    virtual int compute(int x);
+};
+
+class Derived : public Base {
+public:
+    int compute(int x);  // Override
+};
+```
+
+**Implementation:** Virtual methods are identified and generated by `shedskin/virtual.py:virtuals()`
+
+Virtual dispatch allows polymorphic behavior:
+
+```python
+def process(obj):
+    return obj.compute(10)  # Virtual call
+```
+
+Generated C++:
+```cpp
+int process(Base *obj) {
+    return obj->compute(10);  // Virtual method call
+}
+```
+
+## Template Specialization
+
+Polymorphic functions generate multiple template specializations:
+
+```python
+def double_it(x):
+    return x + x
+
+a = double_it(5)        # int version
+b = double_it("hello")  # str version  
+```
+
+Generated C++:
+```cpp
+// Specialization 1: int
+__ss_int double_it(__ss_int x) {
+    return x + x;
+}
+
+// Specialization 2: str
+str *double_it(str *x) {
+    return x->__add__(x);
+}
+```
+
+**Implementation:** Specializations are created by the CPA algorithm in `shedskin/infer.py:cpa()`
+
+## Exception Handling
+
+Python exceptions map to C++ exceptions:
+
+```python
+try:
+    risky_operation()
+except ValueError as e:
+    print("Error:", e)
+```
+
+Generated C++:
+```cpp
+try {
+    risky_operation();
+} catch (ValueError *e) {
+    __print("Error:", e);
+}
+```
+
+All exception classes inherit from `Exception *` in the runtime.
+
+## Integrating with Existing C++ Projects
+
+### As a Static Library
+
+1. **Compile Shed Skin code to object files:**
+```bash
+shedskin mymodule.py
+make
+```
+
+2. **Link with your project:**
+```bash
+g++ -o myapp main.cpp mymodule.o -lshedskin -lgc -lpcre
+```
+
+3. **CMake integration:**
+```cmake
+add_library(mymodule mymodule.cpp)
+target_link_libraries(mymodule shedskin gc pcre)
+
+add_executable(myapp main.cpp)
+target_link_libraries(myapp mymodule)
+```
+
+### As a Python Extension Module  
+
+Compile Shed Skin code as a Python extension:
+
+```bash
+shedskin -e mymodule.py
+make
+```
+
+This generates `mymodule.so` importable from Python:
+
+```python
+import mymodule  # Fast C++ implementation
+result = mymodule.my_function(42)
+```
+
+## Performance Considerations
+
+### Inlining
+
+Small functions may be inlined for performance. Mark with `inline`:
+
+```cpp
+inline int small_func(int x) {
+    return x * 2;
+}
+```
+
+### Avoiding Virtual Calls
+
+Virtual method calls have overhead. When possible, use final classes:
+
+```python
+class FinalClass:  # No subclasses
+    def method(self): pass
+```
+
+Generated methods will be non-virtual.
+
+### Memory Locality
+
+Keep related data together for cache efficiency:
+
+```python
+class Point:
+    def __init__(self, x, y):
+        self.x = x  # Fields stored contiguously  
+        self.y = y
+```
+
+## Debugging Generated Code
+
+Enable debugging symbols:
+
+```bash
+shedskin -g myprogram.py
+make
+gdb ./myprogram
+```
+
+Set breakpoints on generated functions:
+```
+(gdb) break __mymodule__::my_function
+(gdb) run
+```
+
+Inspect Shed Skin data structures:
+```
+(gdb) print *my_list
+(gdb) print my_string->c_str()
+```
+
+## Further Reading
+
+- Shed Skin runtime source: `shedskin/lib/builtin.cpp`
+- Code generation implementation: `shedskin/cpp.py`  
+- Boehm GC documentation: https://www.hboehm.info/gc/

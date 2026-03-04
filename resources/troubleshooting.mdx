@@ -1,0 +1,345 @@
+---
+title: "Troubleshooting"
+description: "Common issues and solutions when using Shed Skin"
+---
+
+## Compilation Errors
+
+### Type Inference Failures
+
+<Warning>
+Shed Skin requires all variables to be implicitly statically typed. Mixed types are the most common cause of compilation failures.
+</Warning>
+
+#### Dynamic Type Errors
+
+If you see errors like "function mixed with non-function" or dynamic variable errors:
+
+**Problem:** Variables changing types during execution
+
+```python
+# Bad - variable changes type
+a = 1
+a = '1'  # Error: type mismatch
+```
+
+**Solution:** Use consistent types throughout
+
+```python
+# Good - consistent types
+a = 1
+a = 2
+```
+
+<Tip>
+For optional values, use `None` with container types (list, dict, class instances) but not with scalar types (int, float, bool).
+</Tip>
+
+#### Mixed Container Types
+
+**Problem:** Collections with mixed element types
+
+```python
+# Bad - mixed types in list
+data = [1, 2.5, 'abc']
+```
+
+**Solution:** Keep collection elements homogeneous
+
+```python
+# Good - consistent element types
+numbers = [1, 2, 3]
+floats = [1.0, 2.5, 3.7]
+strings = ['a', 'b', 'c']
+```
+
+**Exception:** Tuples of length 2 can have mixed types
+
+```python
+# Allowed for 2-tuples
+data = (1, 'hello')  # Good
+```
+
+### Format String Errors
+
+**Problem:** Non-constant or non-string format strings
+
+```python
+# Bad - dynamic format string
+fmt = get_format()
+print(fmt % value)
+```
+
+**Solution:** Use constant format strings
+
+```python
+# Good - constant format string
+print("%d items" % count)
+```
+
+### Unsupported Python Features
+
+Shed Skin reports errors for unsupported Python features. Common issues:
+
+#### Unsupported Statements
+
+- `match/case` statements (Python 3.10+)
+- `try..finally` blocks (use `try..except` instead)
+- Nested functions and classes
+- Multiple inheritance
+
+#### Unsupported Syntax
+
+- Argument unpacking (`*args`, `**kwargs`)
+- Variable annotation syntax in some contexts
+- `eval`, `getattr`, `hasattr`, `isinstance`
+
+<Tip>
+Use block comments with `#{` and `#}` to exclude code that cannot be compiled but should run in CPython.
+</Tip>
+
+## Linker Errors
+
+### Missing Libraries
+
+**Problem:** Linker cannot find required libraries (libgc, libpcre2)
+
+**On Linux:**
+```bash
+sudo apt-get install libgc-dev libpcre2-dev
+```
+
+**On macOS:**
+```bash
+brew install bdw-gc pcre2
+```
+
+**On Windows:**
+Ensure CMake and Visual Studio Build Tools are properly installed.
+
+<Tip>
+Starting with Shed Skin 0.9.12, the `--local-deps` flag (now default) builds dependencies from bundled sources, eliminating external package manager requirements.
+</Tip>
+
+### Library Path Issues
+
+**Problem:** Libraries installed but not found by linker
+
+**Solution:** Use local dependencies
+
+```bash
+shedskin build --local-deps myprogram
+```
+
+Or set library paths manually:
+
+```bash
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+```
+
+## Platform-Specific Issues
+
+### Windows
+
+#### nmake Not Found
+
+**Problem:** CMake cannot find `nmake` command
+
+**Solution:** Use Visual Studio Developer Command Prompt
+
+1. Open **Start Menu**
+2. Search for "Developer Command Prompt for VS"
+3. Run Shed Skin commands from this prompt
+
+#### Path Length Limitations
+
+**Problem:** Build fails due to Windows path length limits
+
+**Solution:** Build in a directory closer to drive root
+
+```bash
+# Instead of C:\Users\YourName\Documents\Projects\VeryLongPath
+# Use:
+cd C:\build
+shedskin build myprogram
+```
+
+### macOS
+
+#### M1/M2 Architecture Issues
+
+**Problem:** Library conflicts on Apple Silicon
+
+**Solution:** Ensure libraries are built for correct architecture
+
+```bash
+# Install universal libraries via Homebrew
+brew install bdw-gc pcre2
+
+# Or use local deps (recommended)
+shedskin build --local-deps myprogram
+```
+
+### Linux
+
+#### Python Development Files Missing
+
+**Problem:** Cannot build extension modules
+
+**Solution:** Install Python dev package
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install python3-dev
+
+# Fedora/RHEL
+sudo dnf install python3-devel
+```
+
+## Runtime Errors
+
+### Segmentation Faults
+
+**Problem:** Program crashes with segfault
+
+**Common Causes:**
+
+1. **None/NULL pointer dereference**
+   ```python
+   obj = None
+   obj.method()  # Crash!
+   ```
+   
+   **Solution:** Check for None before use
+   ```python
+   if obj is not None:
+       obj.method()
+   ```
+
+2. **Index out of bounds** (when using `--nobounds`)
+   
+   <Warning>
+   The `--nobounds` flag disables bounds checking for performance. Only use it after thorough testing.
+   </Warning>
+
+3. **Garbage collection issues**
+   
+   If crashes occur with `--nogc`, the Boehm GC may need reconfiguration.
+
+### Incorrect Results
+
+#### Integer Overflow
+
+**Problem:** Calculations produce unexpected results
+
+**Cause:** By default, Shed Skin uses 32-bit signed integers
+
+**Solution:** Use 64-bit integers for large values
+
+```bash
+shedskin build --int64 myprogram
+```
+
+#### Floating Point Precision
+
+**Problem:** Different results from CPython
+
+**Cause:** Fast math optimizations can affect precision
+
+**Solution:** Avoid `-ffast-math` flag for precision-critical code
+
+## Module Import Errors
+
+### Cannot Locate Module
+
+**Problem:** "cannot locate module: modulename"
+
+**Causes:**
+- Module name contains invalid characters (only letters, digits, underscores)
+- Module file not in search path
+- Module uses unsupported features
+
+**Solution:** Ensure module follows naming conventions
+
+```python
+# Bad
+import my-module  # Hyphens not allowed
+
+# Good  
+import my_module  # Underscores OK
+```
+
+### Unsupported Standard Library Module
+
+**Problem:** Import works in Python but fails in Shed Skin
+
+<Warning>
+Only about 30 standard library modules are supported. See [Supported Modules](/library/supported-modules) for the complete list.
+</Warning>
+
+**Solution:** For extension modules, import unsupported libraries only in non-compiled code:
+
+```python
+# In extension module
+def process_data(data):
+    return [x * 2 for x in data]
+
+if __name__ == '__main__':
+    process_data([1, 2, 3])
+
+# In main Python program (not compiled)
+import compiled_module
+import pandas as pd  # pandas not supported by Shed Skin
+
+df = pd.DataFrame({'a': [1, 2, 3]})
+result = compiled_module.process_data(df['a'].tolist())
+```
+
+## Build System Issues
+
+### CMake Configuration Fails
+
+**Problem:** CMake cannot configure project
+
+**Solution:** Reset build directory
+
+```bash
+shedskin build --reset myprogram
+```
+
+### Parallel Build Failures
+
+**Problem:** Build fails when using `--jobs` flag
+
+**Solution:** Try building with fewer jobs or sequentially
+
+```bash
+# Reduce parallelism
+shedskin build --jobs 2 myprogram
+
+# Or build sequentially
+shedskin build myprogram
+```
+
+## Getting Help
+
+<Tip>
+Before reporting an issue, try:
+1. Simplifying your code to isolate the problem
+2. Checking if the issue occurs with a minimal example
+3. Searching [existing issues](https://github.com/shedskin/shedskin/issues)
+</Tip>
+
+If you've tried the solutions above and still have problems:
+
+1. **Check GitHub Issues**: [github.com/shedskin/shedskin/issues](https://github.com/shedskin/shedskin/issues)
+2. **Report a Bug**: Include:
+   - Minimal code example that reproduces the issue
+   - Shed Skin version (`shedskin --version`)
+   - Operating system and version
+   - Full error message and traceback
+3. **Community Support**: Join discussions on GitHub
+
+<Note>
+Shed Skin is experimental software. Please report bugs to help improve it!
+</Note>

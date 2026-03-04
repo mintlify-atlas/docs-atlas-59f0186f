@@ -1,0 +1,486 @@
+---
+title: "Contributing"
+description: "How to contribute to Shed Skin development"
+---
+
+## Welcome Contributors
+
+Shed Skin is an open source project that thrives on community contributions. Whether you're fixing bugs, adding features, improving documentation, or extending library support, your contributions are valued and appreciated.
+
+<Note>
+Shed Skin has successfully participated in Google Summer of Code and GHOP. Students are encouraged to apply for yearly programs!
+</Note>
+
+## Ways to Contribute
+
+### Report Bugs
+
+Found a bug? Please report it!
+
+1. **Check existing issues**: Search [GitHub Issues](https://github.com/shedskin/shedskin/issues) to avoid duplicates
+2. **Create a new issue**: Provide:
+   - Minimal code example that reproduces the bug
+   - Shed Skin version (`shedskin --version`)
+   - Operating system and version
+   - Expected vs. actual behavior
+   - Full error message and traceback
+3. **Be responsive**: Answer questions from maintainers to help debug
+
+<Tip>
+Simplify your test case to the smallest possible code that demonstrates the issue. This helps maintainers fix bugs faster.
+</Tip>
+
+### Suggest Features
+
+Have ideas for improvements?
+
+1. Open a GitHub issue with the `enhancement` label
+2. Describe the feature and its use case
+3. Explain why it would benefit Shed Skin users
+4. Discuss implementation approaches if you have ideas
+
+### Contribute Code
+
+Code contributions are especially welcome for:
+
+- Bug fixes
+- Performance improvements
+- Support for additional Python features
+- New library module implementations
+- Test coverage improvements
+- Build system enhancements
+
+### Improve Documentation
+
+Documentation contributions help everyone:
+
+- Fix typos and unclear explanations
+- Add examples and tutorials
+- Document undocumented features
+- Improve API documentation
+- Translate documentation
+
+### Add Library Support
+
+One of the most valuable contributions is adding support for more standard library modules. See [Adding Library Modules](#adding-library-modules) below.
+
+## Getting Started
+
+### Easy Tasks
+
+New to the project? Start with issues labeled [**easytask**](https://github.com/shedskin/shedskin/issues?q=is%3Aissue+is%3Aopen+label%3Aeasytask) on GitHub. These are beginner-friendly tasks that will help you understand the codebase.
+
+### Development Setup
+
+#### Prerequisites
+
+- Python 3.8 or later
+- Git
+- C++ compiler (g++, clang, or MSVC)
+- [uv](https://github.com/astral-sh/uv) (Python package installer)
+
+#### Clone the Repository
+
+```bash
+git clone https://github.com/shedskin/shedskin.git
+cd shedskin
+```
+
+#### Install Development Dependencies
+
+Shed Skin uses `uv` for dependency management:
+
+```bash
+# Install uv if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install Shed Skin in development mode
+uv pip install -e .
+
+# Install development dependencies
+uv pip install -e ".[dev]"
+```
+
+#### Verify Installation
+
+```bash
+shedskin --version
+```
+
+### Project Structure
+
+Key directories and files:
+
+```
+shedskin/
+├── shedskin/           # Main package
+│   ├── __init__.py     # CLI entry point
+│   ├── graph.py        # AST analysis and constraint graph
+│   ├── infer.py        # Type inference engine
+│   ├── cpp.py          # C++ code generation
+│   ├── error.py        # Error reporting
+│   ├── config.py       # Global configuration
+│   ├── cmake.py        # CMake build integration
+│   ├── makefile.py     # Makefile generation
+│   └── lib/            # Supported library modules
+│       ├── builtin.py  # Builtin types type models
+│       ├── random.py   # random module type model
+│       └── ...         # Other module type models
+├── shedskin/resources/ # C++ header files
+│   └── lib/            # C++ implementations
+│       ├── builtin.hpp # Builtin types implementation
+│       ├── builtin.cpp
+│       └── ...         # Other module implementations
+├── tests/              # Test suite
+│   ├── unit/           # Unit tests
+│   └── test_*.py       # Integration tests
+├── examples/           # Example programs
+└── docs/               # Documentation
+```
+
+## Development Workflow
+
+### Making Changes
+
+1. **Create a branch** for your changes:
+   ```bash
+   git checkout -b fix-issue-123
+   ```
+
+2. **Make your changes** following the code style
+
+3. **Test your changes** (see [Testing](#testing) below)
+
+4. **Commit with clear messages**:
+   ```bash
+   git commit -m "Fix type inference for dict comprehensions"
+   ```
+
+5. **Push your branch**:
+   ```bash
+   git push origin fix-issue-123
+   ```
+
+6. **Open a Pull Request** on GitHub
+
+### Code Style
+
+Shed Skin follows Python best practices:
+
+- **PEP 8**: Follow Python style guide
+- **Type hints**: Use type annotations (the codebase is gradually being typed)
+- **Docstrings**: Document functions and classes
+- **Mypy**: The codebase is moving towards mypy strict mode
+
+### Running Mypy
+
+Type check your changes:
+
+```bash
+mypy shedskin/
+```
+
+Core modules already use strict mode. When editing these, ensure no new type errors are introduced.
+
+## Testing
+
+### Running Tests
+
+#### Unit Tests
+
+Run Python unit tests with pytest:
+
+```bash
+# Run all unit tests
+pytest tests/unit/
+
+# Run specific test file
+pytest tests/unit/test_graph.py
+
+# Run with verbose output
+pytest -v tests/unit/
+```
+
+#### Integration Tests
+
+Run full compilation tests:
+
+```bash
+cd tests
+
+# Run all tests as executables
+shedskin runtests -x
+
+# Run all tests as executables and extensions
+shedskin runtests -xe
+
+# Run single test
+shedskin runtests --run test_builtin_str
+
+# Run with parallel jobs
+shedskin runtests -x --jobs 4
+
+# Run most recently modified test
+shedskin runtests -x --modified
+```
+
+### Writing Tests
+
+When adding features or fixing bugs, add tests:
+
+#### Unit Tests
+
+Add to `tests/unit/`:
+
+```python
+# tests/unit/test_myfeature.py
+import pytest
+from shedskin import config, graph
+
+def test_my_feature():
+    gx = config.GlobalInfo()
+    # Test your feature
+    assert expected == actual
+```
+
+#### Integration Tests
+
+Add to `tests/`:
+
+```python
+# tests/test_myfeature.py
+def test_feature_case1():
+    assert 1 + 1 == 2
+
+def test_feature_case2():
+    data = [1, 2, 3]
+    assert sum(data) == 6
+
+def test_all():
+    test_feature_case1()
+    test_feature_case2()
+
+if __name__ == '__main__':
+    test_all()
+```
+
+**Test naming conventions**:
+- File: `test_<name>.py`
+- Functions: `test_<name>()`
+- Include `test_all()` that calls all test functions
+- Must run with `python test_myfeature.py` and `pytest`
+
+<Tip>
+Keep tests fast. Reduce iteration counts for performance tests - they're for correctness, not benchmarking.
+</Tip>
+
+### Test Standards
+
+All tests should:
+
+- ✅ Run successfully with `pytest`
+- ✅ Run successfully with `python test_file.py`
+- ✅ Compile and run correctly with Shed Skin
+- ✅ Use meaningful names that describe what's being tested
+- ✅ Include assertions to verify correctness
+- ✅ Avoid using `global` keyword (pytest incompatibility)
+- ✅ Complete quickly (adjust parameters for speed)
+
+## Adding Library Modules
+
+Adding support for Python standard library modules is one of the most valuable contributions. Currently, about 30 modules are supported, but many more could be added.
+
+### How Library Modules Work
+
+Shed Skin library modules consist of two parts:
+
+1. **Type model** (`shedskin/lib/modulename.py`): Python code that provides type information for inference
+2. **C++ implementation** (`shedskin/resources/lib/modulename.{hpp,cpp}`): C++ code that implements the functionality
+
+### Adding a Module: Step by Step
+
+#### 1. Create a Type Model
+
+Create `shedskin/lib/modulename.py` with Python signatures:
+
+```python
+# shedskin/lib/modulename.py
+
+def function_name(arg: int) -> str:
+    """Type model for function_name."""
+    return ""  # Implementation doesn't matter
+
+class ClassName:
+    def __init__(self, value: int):
+        self.value = value
+    
+    def method(self) -> int:
+        return 0
+```
+
+<Note>
+The type model doesn't need to be functional - only the signatures matter. Shed Skin uses it only for type inference.
+</Note>
+
+#### 2. Compile the Type Model
+
+Create a test program that uses the module:
+
+```python
+# test_module.py
+import modulename
+
+result = modulename.function_name(42)
+print(result)
+```
+
+Compile it:
+
+```bash
+shedskin translate test_module
+```
+
+This generates `modulename.cpp` and `modulename.hpp`.
+
+#### 3. Implement C++ Code
+
+Edit `modulename.cpp` and `modulename.hpp` to implement actual functionality:
+
+```cpp
+// modulename.hpp
+#ifndef __MODULENAME_HPP
+#define __MODULENAME_HPP
+
+#include "builtin.hpp"
+
+namespace __modulename__ {
+
+str *function_name(int arg);
+
+} // namespace __modulename__
+#endif
+```
+
+```cpp
+// modulename.cpp
+#include "modulename.hpp"
+
+namespace __modulename__ {
+
+str *function_name(int arg) {
+    // Actual implementation
+    return new str("result");
+}
+
+} // namespace __modulename__
+```
+
+#### 4. Move to Library Directory
+
+Move the files to make them part of Shed Skin:
+
+```bash
+mv modulename.cpp shedskin/resources/lib/
+mv modulename.hpp shedskin/resources/lib/
+```
+
+Now any Shed Skin program can `import modulename`.
+
+#### 5. Add Tests
+
+Create `tests/test_lib_modulename.py`:
+
+```python
+import modulename
+
+def test_function():
+    result = modulename.function_name(42)
+    assert result == "expected"
+
+def test_all():
+    test_function()
+
+if __name__ == '__main__':
+    test_all()
+```
+
+Test it:
+
+```bash
+cd tests
+shedskin runtests --run test_lib_modulename
+```
+
+### Tips for Library Modules
+
+- **Start small**: Begin with a few key functions
+- **Study existing modules**: Look at `lib/random.py`, `lib/re.py` as examples
+- **Use Shed Skin types**: See `builtin.hpp` for available C++ classes
+- **Handle memory correctly**: Use the Boehm GC (`new` without `delete`)
+- **Test thoroughly**: Ensure compiled output matches Python behavior
+- **Document limitations**: Note any partial implementations
+
+## Pull Request Process
+
+### Before Submitting
+
+- ✅ Tests pass locally
+- ✅ Code follows style guidelines  
+- ✅ Commits have clear messages
+- ✅ No unrelated changes included
+- ✅ Documentation updated if needed
+
+### Submitting PR
+
+1. **Open Pull Request** on GitHub
+2. **Fill out PR template** with:
+   - Description of changes
+   - Related issue numbers
+   - Testing performed
+   - Breaking changes (if any)
+3. **Respond to feedback** from maintainers
+4. **Update PR** based on review comments
+
+### After Submission
+
+- CI tests will run automatically
+- Maintainers will review your code
+- Address any requested changes
+- Once approved, your PR will be merged
+
+<Tip>
+Don't be discouraged if changes are requested - code review is a normal part of the process and helps maintain code quality.
+</Tip>
+
+## Community
+
+### Communication
+
+- **GitHub Issues**: Bug reports, feature requests, questions
+- **Pull Requests**: Code review and discussion
+- **Discussions**: General questions and community interaction
+
+### Code of Conduct
+
+Be respectful and professional:
+
+- Welcome newcomers
+- Be patient with questions
+- Provide constructive feedback
+- Focus on the code, not the person
+- Respect different opinions and approaches
+
+## Recognition
+
+All contributors are acknowledged in the [README](https://github.com/shedskin/shedskin#contributors). Your contributions, no matter how small, are valued and appreciated.
+
+Thank you for contributing to Shed Skin!
+
+## Contributors
+
+Shed Skin has been developed by many contributors over the years. Current active maintainers and major contributors include:
+
+- **Mark Dufour** - Original author and maintainer
+- **Many others** - See the full list in the [README](https://github.com/shedskin/shedskin#contributors)
+
+Your name could be here too!

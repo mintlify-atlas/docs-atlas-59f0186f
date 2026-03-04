@@ -1,0 +1,189 @@
+---
+title: "Changelog"
+description: "Release history and notable changes in Shed Skin"
+---
+
+All notable changes to Shed Skin are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## Unreleased
+
+Upcoming changes that will be in the next release.
+
+### Fixed
+
+- Fixed dict comprehension code generation crash (`TypeError: 'Tuple' object is not subscriptable`) in `cpp.py` by accessing `node.elt.elts[0]`/`node.elt.elts[1]` instead of `node.elt[0]`/`node.elt[1]`
+- Fixed dict comprehension type inference in `graph.py`: `isinstance(node.elt, tuple)` was always `False` for `ast.Tuple` nodes, so key/value type constraints were never set up. Changed to `node in self.gx.dictcomp_to_lc.values()`
+- Fixed `runtests --run` executing unbuilt ext tests by aligning ctest regex with the build target suffix in `cmake.py`
+- Added missing `WORKING_DIRECTORY` for non-Windows ext tests in CMake configuration
+
+### Changed
+
+- Converted build system to uv, replacing pip/setuptools workflow with `uv` commands in Makefile
+- Applied mypy strict mode fixes across core modules (`__init__`, `cmake`, `config`, `cpp`, `graph`, `infer`, `makefile`, `stats`)
+- Converted documentation from Sphinx/RST to MkDocs with Markdown
+  - Replaced `README.rst` with `README.md`
+  - Removed generated Sphinx HTML/JS/CSS assets from `docs/`
+  - Added `mkdocs.yml` configuration
+- Updated `Makefile` test target to fix test invocation
+- Refactored `graph.py` and `infer.py` to resolve type issues
+
+### Removed
+
+- Removed `requirements.txt` (dependencies now managed via `pyproject.toml` and uv)
+
+---
+
+## [0.9.12] - 2024
+
+Major release introducing local dependency management and significant internal refactoring.
+
+### Added
+
+#### Local Dependency Management
+
+<Note>
+Starting with 0.9.12, `--local-deps` is now the **default** dependency manager, eliminating the need for external package managers.
+</Note>
+
+- **Local dependency management** (`--local-deps` flag) with bundled zip archives:
+  - Builds bdwgc and pcre2 from compressed sources in `shedskin/ext/`
+  - Extracts to platform-specific cache on first use:
+    - **macOS**: `~/Library/Caches/shedskin/`
+    - **Linux**: `~/.cache/shedskin/`
+    - **Windows**: `%LOCALAPPDATA%/shedskin/Cache/`
+  - Caches built static libraries for subsequent compilations
+  - Works completely **offline** (no network required)
+  - Cross-platform support (Linux, macOS, Windows)
+- `LocalDependencyManager` class in `cmake.py` for zip-based dependency building
+- CLI option `--local-deps` for both `translate` (Makefile) and `build` (CMake) commands
+
+#### Testing
+
+- **Unit tests** for core modules (`tests/unit/`, 74 tests total):
+  - `test_config.py`: Tests for GlobalInfo and state objects
+  - `test_graph.py`: Tests for constraint graph building
+  - `test_infer.py`: Tests for type inference
+  - `test_cpp.py`: Tests for C++ code generation config
+
+### Changed
+
+#### Dependency Management
+
+- Made `--local-deps` the **default** dependency manager for `build`, `run`, and `runtests` subcommands
+  - Dependencies are now automatically built from bundled `ext/` sources
+  - No external package manager required out of the box
+- Bundled bdwgc (v8.2.10) and pcre2 (pcre2-10.47) sources as compressed zip archives in `ext/`:
+  - Reduced from 25MB (full sources) to **1.2MB** (trimmed and compressed)
+  - Removed documentation, tests, CI/CD files, autotools, legacy platform support
+  - Removed SLJIT (JIT compiler) from pcre2 as Shed Skin doesn't use JIT features
+- Simplified CMake output directories to `${CMAKE_BINARY_DIR}` (executables in `build/`)
+
+#### Architecture Refactoring
+
+- **Refactored `GlobalInfo` class** into focused state objects for better code organization:
+  - `FileSystemPaths`: Immutable paths for shedskin installation, resources, and libraries
+  - `BuildConfiguration`: Build flags (bounds_checking, int32/64, nogc, etc.)
+  - `NamingContext`: C++ keywords, prefix, and builtin type names
+  - `EntityRegistry`: Functions, classes, variables, modules, and inheritance tracking
+  - `GraphBuildingContext`: Temporary graph building state (loops, comprehensions, etc.)
+  - `TypeInferenceState`: Core type inference data (cnode, types, constraints, etc.)
+- Created new `shedskin/state/` package containing the focused state dataclasses
+- Maintained **100% backwards compatibility** via property delegation in `GlobalInfo`
+
+#### CLI Improvements
+
+- Consolidated CLI argument definitions using argparse parent parsers:
+  - Created `_create_shared_parsers()` method with reusable argument groups
+  - Shared parsers: `stats`, `types`, `disable`, `compiler`, `cmake`
+  - Reduced code duplication across `translate`, `build`, `run`, `runtests` subcommands
+
+### Security
+
+- Replaced `os.system()` with `subprocess.run()` across all modules:
+  - `cmake.py`: shellcmd, cmake config/build/test, pytest
+  - `makefile.py`: Command execution in `_execute()`
+  - `__init__.py`: Executable running and Windows color output hack
+
+### Documentation
+
+- Documented type inference tuning constants in `infer.py`:
+  - `INCREMENTAL`: Enable incremental analysis mode
+  - `INCREMENTAL_FUNCS`: Functions to add per round (default: 5)
+  - `INCREMENTAL_DATA`: Enable incremental allocation tracking
+  - `INCREMENTAL_ALLOCS`: Allocations before restart (default: 1)
+  - `MAXITERS`: Maximum iterations per round (default: 30)
+  - `CPA_LIMIT`: Initial cartesian product limit (default: 10)
+- Added `MAX_TYPE_DEPTH` constant in `typestr.py` for recursion limit (default: 10)
+
+### Fixed
+
+- Fixed CMake build failure when source file path is absolute (e.g., building from a different directory with `../examples/foo.py`). The issue occurred because absolute parent paths were being concatenated with build directories, creating invalid paths like `build/exe/C:/Users/.../file.cpp`
+- Resource leaks: Added context manager support to `MakefileWriter` class
+- File handling: Use context managers for file operations in `config.py`
+
+### Removed
+
+- **Removed Conan dependency manager** support:
+  - Removed `--conan` CLI option
+  - Removed `ConanBDWGC`, `ConanPCRE`, and `ConanDependencyManager` classes
+  - Removed `ENABLE_CONAN` CMake option
+  - Removed `shedskin/resources/conan/` directory
+  - Removed conan from `requirements.txt`
+
+---
+
+## Version History
+
+Shed Skin has been in development since 2005. Version 0.9.12 represents a significant milestone in maturity and usability.
+
+### Key Milestones
+
+- **2005**: Initial release by Mark Dufour
+- **Various versions**: Gradual improvements in type inference, optimization, and library support
+- **0.9.x series**: Focus on stability, usability, and modern Python 3 support
+- **0.9.12 (2024)**: Major architectural improvements and simplified dependency management
+
+### Performance Evolution
+
+Shed Skin has consistently improved performance over the years:
+
+```
+Sieve benchmark (n=100000000):
+
+CPython 3.10.6:     13.4 seconds
+CPython 3.11.0:     11.4 seconds
+Nuitka 0.6.16:      11.4 seconds
+PyPy 3.9.12:         5.8 seconds
+Numba 0.56.4:        2.5 seconds
+Shed Skin 0.9.9:     1.9 seconds
+Shed Skin 0.9.9:     1.8 seconds (with --nowrap --nobounds)
+```
+
+<Tip>
+Note: Numba defaults to int64 as integer type, while Shed Skin defaults to int32. Performance is practically equal when using `shedskin --int64`.
+</Tip>
+
+### Example Programs
+
+Shed Skin successfully compiles over **80 non-trivial programs** (at over 25,000 lines in total), including:
+
+- **Games**: DOOM, Othello, Quake, C64 emulator
+- **Graphics**: Ray tracer, Voronoi diagrams, 3D rendering
+- **Algorithms**: A*, neural networks, genetic algorithms
+- **Utilities**: rsync-like tool, SHA implementations
+
+See the [Examples](/examples/overview) section for more details.
+
+---
+
+## Contributing
+
+Shed Skin is open source and welcomes contributions! See [Contributing](/resources/contributing) for how to get involved.
+
+### Reporting Issues
+
+Found a bug or have a feature request? [Open an issue](https://github.com/shedskin/shedskin/issues) on GitHub.
+
+### Source Code
+
+View the source code and full commit history on [GitHub](https://github.com/shedskin/shedskin).

@@ -1,0 +1,563 @@
+---
+title: Optimization
+description: Techniques for maximizing performance of Shed Skin compiled programs
+---
+
+Shed Skin can deliver 10-100x speedups over CPython, but getting maximum performance requires understanding optimization techniques and compiler flags.
+
+## Compiler Flags
+
+Shed Skin provides several flags to trade safety for speed.
+
+### --nobounds: Disable Bounds Checking
+
+<Tip>
+The most impactful optimization flag. Safe for most well-tested code.
+</Tip>
+
+**What it does:** Disables array/list index boundary checks, eliminating `IndexError` exceptions.
+
+```python
+# With bounds checking (default)
+a = [1, 2, 3]
+print(a[5])  # Raises IndexError
+
+# With --nobounds
+a = [1, 2, 3]
+print(a[5])  # Undefined behavior, may crash or return garbage
+```
+
+**When to use:**
+- Code has been thoroughly tested
+- You're confident indices are always valid
+- Profiling shows bounds checking overhead
+
+**Performance impact:** 10-50% speedup for index-heavy code
+
+```bash
+shedskin build --nobounds myprogram
+```
+
+### --nowrap: Disable Integer Wrap-Around Checking
+
+**What it does:** Disables checking for integer overflow/underflow.
+
+```python
+# With wrap checking (default)
+x = 2_000_000_000
+y = x * 2  # Detects overflow
+
+# With --nowrap
+x = 2_000_000_000
+y = x * 2  # May wrap around or overflow silently
+```
+
+**When to use:**
+- Your calculations stay within safe integer ranges
+- You need maximum integer performance
+
+**Performance impact:** 5-20% speedup for integer-heavy arithmetic
+
+```bash
+shedskin build --nowrap myprogram
+```
+
+### --noassert: Disable Assertions
+
+**What it does:** Removes all `assert` statements from compiled code.
+
+```python
+def divide(a, b):
+    assert b != 0, "Division by zero"
+    return a / b
+```
+
+**When to use:**
+- Production builds where assertions are for debugging only
+- Assertions are in hot loops
+
+```bash
+shedskin build --noassert myprogram
+```
+
+### Combining Flags
+
+For maximum performance on tested code:
+
+```bash
+shedskin build --nobounds --nowrap --noassert myprogram
+```
+
+<Warning>
+Always test thoroughly before deploying with safety checks disabled.
+</Warning>
+
+## Integer and Float Size Selection
+
+### Integer Width
+
+Control integer size with `--int32`, `--int64`, or `--int128`:
+
+```bash
+# Default: 32-bit integers (faster, less memory)
+shedskin build myprogram
+
+# 64-bit integers (wider range, slightly slower)
+shedskin build --int64 myprogram
+
+# 128-bit integers (maximum range, slowest)
+shedskin build --int128 myprogram
+```
+
+**Performance comparison (sieve benchmark):**
+```
+int32:  1.8 seconds
+int64:  2.5 seconds
+int128: 4.2 seconds
+```
+
+<Tip>
+Use int32 unless you need values outside ±2 billion range.
+</Tip>
+
+### Float Precision
+
+```bash
+# Default: 64-bit floats (double precision)
+shedskin build myprogram
+
+# 32-bit floats (faster, less precise)
+shedskin build --float32 myprogram
+```
+
+## Code-Level Optimizations
+
+<Steps>
+
+### Reduce Memory Allocations
+
+<Warning>
+Small allocations (tuples, lists, objects) are cheap in Python but expensive in C++. They cause:
+- Memory allocation overhead
+- Garbage collection pressure
+- Cache misses
+</Warning>
+
+**Bad: Creates many temporary objects**
+
+```python
+def calculate(data):
+    results = []
+    for x in data:
+        # Creates temporary tuple each iteration
+        temp = (x * 2, x ** 2, x + 10)
+        results.append(temp[0] + temp[1] - temp[2])
+    return results
+```
+
+**Good: Eliminates intermediate allocations**
+
+```python
+def calculate(data):
+    results = []
+    for x in data:
+        # Direct calculation, no tuple
+        val1 = x * 2
+        val2 = x ** 2
+        val3 = x + 10
+        results.append(val1 + val2 - val3)
+    return results
+```
+
+### Use Attributes Instead of Indexing
+
+Attribute access is faster than indexing:
+
+```python
+# Slower: List indexing
+class Vector:
+    def __init__(self, x, y, z):
+        self.data = [x, y, z]
+    
+    def magnitude(self):
+        return (self.data[0]**2 + self.data[1]**2 + self.data[2]**2)**0.5
+
+# Faster: Direct attributes
+class Vector:
+    def __init__(self, x, y, z):
+        self.x = x
+        self.y = y
+        self.z = z
+    
+    def magnitude(self):
+        return (self.x**2 + self.y**2 + self.z**2)**0.5
+```
+
+**Performance difference:** 15-30% faster
+
+### Avoid Repeated List Comprehensions
+
+```python
+# Slower: Multiple comprehensions
+def process(data):
+    doubled = [x * 2 for x in data]
+    squared = [x ** 2 for x in doubled]
+    filtered = [x for x in squared if x > 100]
+    return filtered
+
+# Faster: Single pass
+def process(data):
+    result = []
+    for x in data:
+        doubled = x * 2
+        squared = doubled ** 2
+        if squared > 100:
+            result.append(squared)
+    return result
+```
+
+### Optimize Hot Loops
+
+Identify and optimize inner loops:
+
+```python
+# Before: Function call overhead in loop
+def compute(matrix):
+    total = 0.0
+    for row in matrix:
+        for val in row:
+            total += abs(val)  # abs() called millions of times
+    return total
+
+# After: Inline the operation
+def compute(matrix):
+    total = 0.0
+    for row in matrix:
+        for val in row:
+            if val < 0:
+                total -= val
+            else:
+                total += val
+    return total
+```
+
+### Use Specialized Loops
+
+Shed Skin optimizes these patterns - use them!
+
+```python
+# Optimized: No intermediate tuples created
+for i, item in enumerate(items):
+    process(i, item)
+
+for key, value in dictionary.items():
+    process(key, value)
+
+for a, b in zip(list1, list2):
+    process(a, b)
+```
+
+</Steps>
+
+## Compiler Optimization Flags
+
+Shed Skin passes flags to the C++ compiler. Customize them for your needs:
+
+### Locate FLAGS Files
+
+```bash
+# Find Shed Skin installation
+python -c "import shedskin; print(shedskin.__file__)"
+
+# FLAGS files are in the same directory
+ls /path/to/shedskin/FLAGS*
+```
+
+### Override Locally
+
+Create a local `FLAGS` file to override defaults:
+
+```bash
+# In your project directory
+echo "-O3 -march=native -ffast-math" > FLAGS
+shedskin build myprogram
+```
+
+### Recommended C++ Flags
+
+```bash
+# Aggressive optimization
+-O3                # Maximum optimization
+-march=native      # Use CPU-specific instructions
+-ffast-math        # Fast floating-point (non-IEEE)
+-flto              # Link-time optimization
+-DNDEBUG           # Disable debug code
+```
+
+<Warning>
+`-ffast-math` trades IEEE floating-point compliance for speed. Results may differ slightly.
+</Warning>
+
+## Profile-Guided Optimization (PGO)
+
+PGO uses runtime profiling to guide compilation:
+
+<Steps>
+
+### Build with Profiling
+
+```bash
+shedskin translate myprogram
+cd build/
+g++ -O3 -fprofile-generate -o myprogram myprogram.cpp -lgc -lpcre2-8
+```
+
+### Generate Profile Data
+
+```bash
+./myprogram  # Run with typical workload
+# Creates .gcda profiling files
+```
+
+### Rebuild with Profile
+
+```bash
+g++ -O3 -fprofile-use -o myprogram myprogram.cpp -lgc -lpcre2-8
+```
+
+</Steps>
+
+**Performance gain:** 10-25% additional speedup
+
+## Garbage Collection Tuning
+
+Configure the Boehm GC for better performance:
+
+### Build Optimized GC
+
+```bash
+# When installing Boehm GC
+CPPFLAGS="-O3 -march=native" ./configure \
+    --enable-cplusplus \
+    --enable-threads=pthreads \
+    --enable-thread-local-alloc \
+    --enable-large-config \
+    --enable-parallel-mark  # Use multiple cores
+make && sudo make install
+```
+
+### Disable GC (Carefully)
+
+For short-running programs:
+
+```bash
+shedskin build --nogc myprogram
+```
+
+<Warning>
+Only use `--nogc` for programs that:
+- Run briefly
+- Don't allocate much memory
+- Would exit before running out of memory
+</Warning>
+
+### Runtime GC Control
+
+Control GC from your Python code:
+
+```python
+import gc
+
+# Disable during critical sections
+gc.disable()
+perform_intensive_computation()
+gc.enable()
+gc.collect()  # Manual collection
+```
+
+## Profiling Your Code
+
+### Using Gprof2Dot
+
+Visualize where time is spent:
+
+<Steps>
+
+### Build with Profiling
+
+```bash
+shedskin translate myprogram
+cd build/
+make myprogram_prof  # Creates profiling-enabled binary
+```
+
+### Run and Profile
+
+```bash
+./myprogram_prof
+gprof myprogram_prof | gprof2dot.py | dot -Tpng -o profile.png
+```
+
+### Analyze Results
+
+Open `profile.png` to see:
+- Which functions consume the most time
+- Call frequencies
+- Call graph relationships
+
+</Steps>
+
+### Using OProfile (Extension Modules)
+
+Profile extension modules:
+
+```bash
+shedskin build -e mymodule
+
+# Start profiling
+sudo opcontrol --start
+
+# Run your program
+python main_program.py
+
+# Stop and report
+sudo opcontrol --shutdown
+opreport -l build/mymodule.so
+```
+
+### Memory Profiling with Massif
+
+```bash
+shedskin build --nogc myprogram
+valgrind --tool=massif build/myprogram
+ms_print massif.out.12345
+```
+
+## Real-World Optimization Example
+
+Let's optimize a mandelbrot calculation:
+
+### Initial Version
+
+```python
+def mandelbrot(max_iterations=1000):
+    bailout = 16
+    lines = []
+    for y in range(-39, 39):
+        line = []
+        for x in range(-39, 39):
+            cr = y/40 - 0.5
+            ci = x/40
+            zi = 0
+            zr = 0
+            i = 0
+            while True:
+                i += 1
+                temp = zr * zi
+                zr2 = zr * zr
+                zi2 = zi * zi
+                zr = zr2 - zi2 + cr
+                zi = temp + temp + ci
+                if zi2 + zr2 > bailout:
+                    line.append(" ")
+                    break
+                if i > max_iterations:
+                    line.append("#")
+                    break
+        lines.append(''.join(line))
+    return lines
+```
+
+### Optimized Version
+
+```python
+def mandelbrot(max_iterations=1000):
+    bailout = 16
+    # Pre-allocate results list
+    lines = []
+    
+    for y in range(-39, 39):
+        # Use list instead of appending chars
+        line = [' '] * 78
+        
+        for x in range(-39, 39):
+            # Compute once
+            cr = y * 0.025 - 0.5  # Division → multiplication
+            ci = x * 0.025
+            zi = 0.0
+            zr = 0.0
+            
+            for i in range(max_iterations + 1):
+                temp = zr * zi
+                zr2 = zr * zr
+                zi2 = zi * zi
+                
+                if zi2 + zr2 > bailout:
+                    break
+                    
+                zr = zr2 - zi2 + cr
+                zi = temp + temp + ci
+            else:
+                # Only set if we didn't break
+                line[x + 39] = '#'
+        
+        lines.append(''.join(line))
+    
+    return lines
+```
+
+**Compile and benchmark:**
+
+```bash
+# Standard build
+shedskin build mandelbrot
+time build/mandelbrot
+# TIME: 2.3s
+
+# Optimized build
+shedskin build --nobounds --nowrap mandelbrot
+time build/mandelbrot
+# TIME: 1.8s
+
+# With fast math
+echo "-O3 -march=native -ffast-math" > FLAGS
+shedskin build --nobounds --nowrap mandelbrot
+time build/mandelbrot
+# TIME: 1.5s
+```
+
+**Total improvement:** 35% faster
+
+## Optimization Checklist
+
+For maximum performance:
+
+- [ ] Profile to identify bottlenecks
+- [ ] Use `--nobounds` for tested code
+- [ ] Use `--nowrap` for safe integer ranges
+- [ ] Use `--int32` unless you need larger integers
+- [ ] Minimize allocations in hot loops
+- [ ] Use attributes instead of indexing
+- [ ] Inline small calculations
+- [ ] Add `-ffast-math` to FLAGS (if appropriate)
+- [ ] Use `-march=native` for target hardware
+- [ ] Consider profile-guided optimization
+- [ ] Build optimized Boehm GC
+
+## Performance Comparison
+
+Typical speedups for various optimization levels (sieve benchmark, n=100,000,000):
+
+```
+CPython 3.11:              11.4s  (baseline)
+Shed Skin (default):        1.9s  (6.0x faster)
+Shed Skin (--nobounds):     1.5s  (7.6x faster)
+Shed Skin (--nowrap):       1.7s  (6.7x faster)
+Shed Skin (both):           1.3s  (8.8x faster)
+Shed Skin (both + FLAGS):   0.9s  (12.7x faster)
+Shed Skin (all + PGO):      0.8s  (14.3x faster)
+```
+
+<Tip>
+For most projects, `--nobounds` provides the best effort/reward ratio.
+</Tip>

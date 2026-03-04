@@ -1,0 +1,220 @@
+---
+title: Typing restrictions
+description: Understanding Shed Skin's implicit static typing requirements
+---
+
+Shed Skin translates Python code into C++, which requires all variables to have a single, static type throughout their lifetime. This is the most fundamental restriction when working with Shed Skin.
+
+## Implicit static typing
+
+Unlike standard Python where variables can change types dynamically, Shed Skin requires that each variable maintains the same type from assignment to usage. The compiler uses type inference to automatically determine these types, but they must remain consistent.
+
+### Single type per variable
+
+Variables can only ever have one type. Once assigned, a variable cannot be reassigned to a value of a different type:
+
+```python
+# Bad: Variable changes type
+a = 1
+a = '1'  # Error: 'a' cannot change from int to str
+```
+
+```python
+# Good: Variable maintains consistent type
+a = 1
+a = 2
+a = 42
+```
+
+<Warning>
+Type changes will cause compilation errors. Plan your variable usage carefully to avoid type conflicts.
+</Warning>
+
+### Abstract types and inheritance
+
+While variables must have a static type, that type can be abstract. This allows for polymorphism through inheritance:
+
+```python
+class Animal:
+    def speak(self):
+        pass
+
+class Dog(Animal):
+    def speak(self):
+        return "Woof!"
+
+class Cat(Animal):
+    def speak(self):
+        return "Meow!"
+
+# Good: Both Dog and Cat share a common base class
+pet = Dog()
+pet = Cat()  # Allowed because both are Animals
+```
+
+This works because both `Dog` and `Cat` inherit from `Animal`, making them compatible for assignment to the same variable.
+
+## Collection type restrictions
+
+Collections like lists, tuples, sets, and dictionaries must contain elements of a single, consistent type.
+
+### Homogeneous collections
+
+All elements in a collection must share the same type:
+
+```python
+# Good: All elements are the same type
+a = ['apple', 'banana', 'cherry']
+b = (1, 2, 3)
+c = [[10.3, -2.0], [1.5, 2.3], []]
+```
+
+```python
+# Bad: Mixed types in collections
+d = [1, 2.5, 'abc']  # Error: int, float, and str mixed
+e = [3, [1, 2]]      # Error: int and list mixed
+f = (0, 'abc', [1, 2, 3])  # Error: multiple types in tuple
+```
+
+<Note>
+Empty collections in larger structures are fine, as shown in the `c` example above where one inner list is empty.
+</Note>
+
+### Dictionary restrictions
+
+Dictionaries can have different types for keys and values, but all keys must share one type and all values must share one type:
+
+```python
+# Good: Consistent key type, consistent value type
+g = {'a': 1, 'b': 2, 'c': 3}
+```
+
+```python
+# Bad: Values have different types
+h = {'a': 1, 'b': 'hello', 'c': [1, 2, 3]}
+```
+
+### Special case: Tuples of length 2
+
+Shed Skin makes a special exception for 2-element tuples, which can contain mixed types:
+
+```python
+# Good: 2-tuples can mix types
+a = (1, [1, 2, 3])
+b = ('key', 42)
+c = (3.14, 'pi')
+```
+
+<Note>
+This exception exists to support common patterns like dictionary iteration with `items()`. Longer tuples still require homogeneous types.
+</Note>
+
+## None mixing rules
+
+The `None` value has special restrictions based on the types it's mixed with.
+
+### Allowed with non-scalar types
+
+`None` can be mixed with non-scalar types (objects, lists, dictionaries, etc.):
+
+```python
+# Good: None with list
+l = [1, 2, 3]
+l = None
+
+# Good: None with custom class instance
+class MyClass:
+    pass
+
+obj = MyClass()
+obj = None
+```
+
+### Not allowed with scalar types
+
+`None` cannot be mixed with scalar types (int, float, bool, complex):
+
+```python
+# Bad: None with integer
+m = 1
+m = None  # Error: Cannot mix int with None
+
+# Bad: None as default argument for scalar type
+def fun(x=None):  # Error if x is used as int
+    pass
+fun(1)
+```
+
+<Warning>
+When `None` becomes a NULL pointer in C++, using it with scalars can lead to undefined behavior. Use sentinel values instead:
+
+```python
+# Good: Use special value instead of None
+def fun(x=-1):  # Use -1 to indicate "not set"
+    if x == -1:
+        # handle default case
+        pass
+    else:
+        # use x
+        pass
+fun(1)
+```
+</Warning>
+
+### Segfault risks
+
+Since `None` translates to a NULL pointer in C++, dereferencing it will cause a segmentation fault:
+
+```python
+obj = None
+obj.method()  # Will segfault if None
+```
+
+Always check for `None` before dereferencing:
+
+```python
+if obj is not None:
+    obj.method()
+```
+
+## Integer and float mixing
+
+Unlike most type combinations, integers and floats can usually be mixed together:
+
+```python
+# Generally allowed: int and float mixing
+a = 1
+a = 2.5  # Usually works - integers become floats
+
+values = [1, 2.5, 3, 4.7]  # Usually works
+```
+
+When integers and floats are mixed, the integers are automatically converted to floats.
+
+<Note>
+Shed Skin will generate an error in specific cases where int/float mixing cannot be supported. If you encounter such an error, separate your integer and float operations.
+</Note>
+
+## Type inference in practice
+
+Shed Skin uses sophisticated type inference to determine variable types automatically:
+
+```python
+# Type is inferred from usage
+def calculate(x, y):
+    return x + y
+
+# Calling with specific types allows inference
+result = calculate(1, 2)      # Inferred as int
+result2 = calculate(1.0, 2.0)  # Inferred as float
+```
+
+The type inference analyzes your entire program to determine types, but it can only succeed if the typing rules are followed consistently.
+
+<Accordion title="Advanced: Why these restrictions?">
+C++ is a statically-typed language, meaning all types must be known at compile time. Shed Skin's type inference determines these types automatically, but once determined, they become part of the generated C++ code.
+
+When you write `a = 1`, Shed Skin generates C++ code declaring `a` as an integer. If you later write `a = "hello"`, there's no way to change that C++ declaration—the variable has already been typed.
+
+These restrictions enable Shed Skin to generate efficient C++ code that runs much faster than interpreted Python, at the cost of some flexibility.
+</Accordion>

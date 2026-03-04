@@ -1,80 +1,269 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Compile your first Python program to C++ in under 5 minutes
 ---
 
-## Get started in three steps
+Shed Skin compiles pure Python programs into optimized C++ code. This guide will walk you through compiling your first program.
 
-Get your documentation site running locally and make your first customization.
+## Before you begin
 
-### Step 1: Set up your local environment
+Make sure you have Shed Skin installed. If not, see the [installation guide](/installation).
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Note>
+  Shed Skin works with a restricted subset of Python. Your program must be implicitly statically typed and cannot use dynamic features like `eval` or `getattr`.
+</Note>
 
-### Step 2: Deploy your changes
+## Compile your first program
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+Let's compile the classic "Hello, World!" program and see Shed Skin in action.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Steps>
+  <Step title="Create a Python file">
+    Create a file called `test.py` with the following content:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```python test.py
+    print('hello, world!')
+    ```
 
-### Step 3: Go live
+    This simple program will help you verify that Shed Skin is working correctly.
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Compile the program">
+    Run the Shed Skin compiler on your Python file:
+
+    <CodeGroup>
+      ```bash Linux/macOS
+      shedskin build test
+      ```
+
+      ```bash Windows
+      shedskin build --conan test
+      ```
+    </CodeGroup>
+
+    This command translates your Python code to C++, then compiles it to a native binary. The `--conan` flag on Windows downloads required dependencies automatically.
+
+    <Warning>
+      On Windows, if you get an error about `nmake` not being found, open a "Visual Studio Developer Command Prompt" and try again.
+    </Warning>
+
+    You should see output indicating the translation and compilation process. When complete, you'll find the generated files in a `build` directory.
+  </Step>
+
+  <Step title="Run your compiled program">
+    Execute the compiled binary:
+
+    <CodeGroup>
+      ```bash Linux/macOS
+      build/test
+      ```
+
+      ```bash Windows
+      build\Debug\test.exe
+      ```
+    </CodeGroup>
+
+    You should see:
+
+    ```
+    hello, world!
+    ```
+
+    Congratulations! You've successfully compiled and run your first Shed Skin program.
+  </Step>
+</Steps>
+
+## Try a more complex example
+
+Let's compile a program that does some real computation to see Shed Skin's performance benefits.
+
+<Steps>
+  <Step title="Create a computation-intensive program">
+    Create a file called `mandelbrot.py`:
+
+    ```python mandelbrot.py
+    import time
+
+    def mandelbrot(max_iterations=1000):
+        bailout = 16
+        for y in range(-39, 39):
+            line = []
+            for x in range(-39, 39):
+                cr = y/40 - 0.5
+                ci = x/40
+                zi = 0
+                zr = 0
+                i = 0
+                while True:
+                    i += 1
+                    temp = zr * zi
+                    zr2 = zr * zr
+                    zi2 = zi * zi
+                    zr = zr2 - zi2 + cr
+                    zi = temp + temp + ci
+                    if zi2 + zr2 > bailout:
+                        line.append(" ")
+                        break
+                    if i > max_iterations:
+                        line.append("#")
+                        break
+            print(''.join(line))
+
+    t0 = time.time()
+    mandelbrot()
+    print('Time: %.2f seconds' % (time.time()-t0))
+    ```
+
+    This program renders a Mandelbrot fractal and measures execution time.
+  </Step>
+
+  <Step title="Compare performance">
+    First, run it with Python:
+
+    ```bash
+    python mandelbrot.py
+    ```
+
+    Note the execution time. Then compile and run it with Shed Skin:
+
+    <CodeGroup>
+      ```bash Linux/macOS
+      shedskin build mandelbrot
+      build/mandelbrot
+      ```
+
+      ```bash Windows
+      shedskin build --conan mandelbrot
+      build\Debug\mandelbrot.exe
+      ```
+    </CodeGroup>
+
+    The compiled version should be significantly faster - typically 10-100x speedup depending on your system.
+  </Step>
+</Steps>
+
+## Build options
+
+Shed Skin provides several options to optimize your compiled programs:
+
+### Disable bounds checking
+
+For maximum performance, disable array bounds checking:
+
+```bash
+shedskin build --nobounds test
+```
+
+This can dramatically improve performance for indexing-heavy code, but be careful - invalid indices will cause crashes instead of raising `IndexError`.
+
+### Integer and float precision
+
+Control the size of numeric types:
+
+```bash
+# Use 64-bit integers (default is 32-bit)
+shedskin build --int64 test
+
+# Use 64-bit floats (default)
+shedskin build --float64 test
+```
+
+<Note>
+  Use `--int64` if your program needs to handle integers larger than 2³¹-1.
+</Note>
+
+## Building extension modules
+
+You can also compile Python code as extension modules that can be imported by regular Python programs.
+
+Create `simple_module.py`:
+
+```python simple_module.py
+def func1(x):
+    return x + 1
+
+def func2(n):
+    d = dict([(i, i*i) for i in range(n)])
+    return d
+
+if __name__ == '__main__':
+    print(func1(5))
+    print(func2(10))
+```
+
+Compile as an extension module:
+
+```bash
+shedskin build -e simple_module
+```
+
+Then use it from Python:
+
+<CodeGroup>
+  ```python Linux/macOS
+  # Change to build directory first
+  import sys
+  sys.path.insert(0, 'build')
+  
+  from simple_module import func1, func2
+  
+  print(func1(5))  # Output: 6
+  print(func2(10)) # Output: {0: 0, 1: 1, 2: 4, ..., 9: 81}
+  ```
+
+  ```python Windows
+  # Change to build/Debug directory first
+  import sys
+  sys.path.insert(0, 'build/Debug')
+  
+  from simple_module import func1, func2
+  
+  print(func1(5))  # Output: 6
+  print(func2(10)) # Output: {0: 0, 1: 1, 2: 4, ..., 9: 81}
+  ```
+</CodeGroup>
+
+<Warning>
+  Extension modules must call their own functions (directly or indirectly) to enable type inference. Place test calls under `if __name__ == '__main__'` so they don't run when imported.
+</Warning>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you've compiled your first programs, learn more about:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Typing restrictions" icon="code" href="/concepts/typing-restrictions">
+    Understand the static typing requirements
+  </Card>
+  
+  <Card title="Python subset" icon="python" href="/concepts/python-subset">
+    Learn which Python features are supported
+  </Card>
+  
+  <Card title="Writing compatible code" icon="pen-to-square" href="/guides/writing-compatible-code">
+    Best practices for Shed Skin programs
+  </Card>
+  
+  <Card title="Optimization guide" icon="gauge-high" href="/guides/optimization">
+    Get the best performance from your code
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Troubleshooting
+
+### Compilation errors
+
+If compilation fails, common issues include:
+
+- **Dynamic typing**: Variables changing types between int and string
+- **Mixed collections**: Lists containing different types like `[1, 'hello']`
+- **Unsupported features**: Using `*args`, `**kwargs`, or nested functions
+
+See the [troubleshooting guide](/resources/troubleshooting) for detailed solutions.
+
+### Performance not as expected
+
+- Use `--nobounds` to disable bounds checking
+- Profile your code to find bottlenecks
+- Reduce small object allocations (lists, tuples, class instances)
+- See the [optimization guide](/guides/optimization) for more tips

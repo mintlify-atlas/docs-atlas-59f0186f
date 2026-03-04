@@ -1,0 +1,201 @@
+---
+title: "Type Inference Algorithm"
+description: "Deep dive into Shed Skin's type inference system"
+---
+
+## Overview
+
+Shed Skin uses a sophisticated constraint-based type inference algorithm to automatically determine types for Python code. The type inference system combines two powerful algorithms to handle both function polymorphism and data polymorphism.
+
+## Core Algorithms
+
+### Cartesian Product Algorithm (CPA)
+
+Shed Skin implements Agesen's Cartesian Product Algorithm to handle parametric polymorphism, where the return type of a method depends on the actual types of the method arguments.
+
+For example:
+```python
+def identity(x):
+    return x
+
+a = identity(5)      # returns int
+b = identity("hello") # returns str
+```
+
+The CPA creates specialized versions of functions for each unique combination of argument types encountered during analysis.
+
+**Implementation:** `shedskin/infer.py:1236` - The `cpa()` function handles cartesian product analysis
+
+### Iterative Flow Analysis (IFA)
+
+Plevyak's Iterative Flow Analysis handles data polymorphism, where variable types depend on control flow paths.
+
+For example:
+```python
+if condition:
+    x = [1, 2, 3]
+else:
+    x = ["a", "b", "c"]
+```
+
+IFA identifies imprecision points where types mix and duplicates class instances to maintain type precision.
+
+**Implementation:** `shedskin/infer.py:1460` - The `ifa()` function performs iterative flow analysis
+
+## Constraint Graph
+
+Type inference works by propagating types through a constraint graph:
+
+- **Nodes** represent program elements (variables, expressions, function calls)
+- **Edges** represent type constraints between nodes
+- **Types** flow from sources to sinks following constraint edges
+
+The constraint graph is built during the analysis phase in `shedskin/graph.py` by the `ModuleVisitor` class.
+
+### Graph Structure
+
+Nodes are identified by a tuple `(AST_node, dcpa, cpa)` where:
+- `AST_node`: The Python AST node
+- `dcpa`: Data duplication index (for class/container polymorphism)
+- `cpa`: Function duplication index (for parametric polymorphism)
+
+Initially both indices are 0. During inference, the graph is duplicated along these dimensions to maintain precision.
+
+## Iterative Dataflow Analysis
+
+The main inference algorithm in `iterative_dataflow_analysis()` proceeds in phases:
+
+### Forward Phase
+
+1. **Propagate types** through the constraint graph via `propagate()` (`infer.py:862`)
+   - Types flow from nodes to their successors
+   - Continues until reaching a fixed point
+
+2. **Create function duplicates** using CPA via `cpa()` (`infer.py:1236`)
+   - Generates specialized function versions for different type combinations
+   - Connects actual arguments to formal parameters
+
+3. **Seed allocation points** with correct types via `ifa_seed_template()` (`infer.py:1713`)
+   - Ensures container allocations get appropriate element types
+
+### Backward Phase
+
+1. **Find imprecision points** via `ifa()` (`infer.py:1460`)
+   - Identifies where types are mixing inappropriately
+   - Traces backwards to find related allocation points
+
+2. **Duplicate classes** and distribute across allocation points
+   - Creates specialized container types for different use cases
+   - Example: `list[int]` vs `list[str]` become separate types
+
+### Cleanup
+
+- Exit if no imprecision points found (analysis converged)
+- Otherwise reset graph state and restart with more duplicates
+- Allocation point types maintained in `gx.alloc_info`
+
+## Type Seeds
+
+Inference starts from known "type seeds":
+- Integer literals → `int_` type
+- String literals → `str_` type  
+- List constructors → `list` type
+- Class instantiations → class type
+
+Types propagate from these seeds throughout the program.
+
+## Tuning Parameters
+
+The inference algorithm has several tunable constants in `infer.py:137-175`:
+
+```python
+# Enable incremental analysis (default: True)
+INCREMENTAL = True
+
+# Functions added per incremental round (default: 5)
+INCREMENTAL_FUNCS = 5
+
+# Enable incremental allocation tracking (default: True)
+INCREMENTAL_DATA = True
+
+# Allocations before restart (default: 1)
+INCREMENTAL_ALLOCS = 1
+
+# Max iterations per round (default: 30)
+MAXITERS = 30
+
+# CPA combinations limit (default: 10)
+CPA_LIMIT = 10
+```
+
+These parameters control the tradeoff between analysis precision and compilation time.
+
+## Scalability Limitations
+
+### Cartesian Product Explosion
+
+The main scalability challenge is combinatorial explosion in the cartesian product algorithm. For a function called with N different type combinations, CPA generates up to N specialized versions.
+
+**Mitigation:** The `CPA_LIMIT` parameter (default: 10) limits combinations per call site. When exceeded, the limit doubles and analysis restarts with reduced precision.
+
+### Memory Usage
+
+Large programs with many polymorphic functions can consume significant memory:
+- Each function specialization requires duplicated constraint graph nodes
+- Type information is maintained for all nodes and their combinations
+
+**Mitigation:** Incremental analysis (`INCREMENTAL = True`) adds functions gradually to show progress and manage memory.
+
+### Iteration Count
+
+Complex type dependencies may require many iterations to converge:
+- Each IFA split restarts the entire analysis
+- After 3 consecutive max-iteration hits, analysis terminates
+
+**Mitigation:** Reduce `MAXITERS` for faster compilation at the cost of potentially less precise types.
+
+## Example: Type Inference in Action
+
+Consider this Python code:
+
+```python
+def process_list(items):
+    result = []
+    for item in items:
+        result.append(item * 2)
+    return result
+
+nums = process_list([1, 2, 3])
+strs = process_list(["a", "b"])
+```
+
+**Inference steps:**
+
+1. Initial call with `[1, 2, 3]` creates `process_list<int>` specialization
+2. `result` inferred as `list[int]`
+3. Second call with `["a", "b"]` creates `process_list<str>` specialization  
+4. Second `result` inferred as `list[str]`
+5. Two separate function versions generated in C++
+
+## Debugging Type Inference
+
+Use the debug level flags for insight into inference:
+
+```bash
+# Show detailed type inference information
+shedskin -d 2 myprogram.py
+
+# Show IFA splitting decisions
+shedskin -d 3 myprogram.py
+```
+
+The output shows:
+- Template creation for function specializations
+- IFA splits when types are duplicated
+- Iteration counts and convergence status
+
+## Further Reading
+
+- Ole Agesen's PhD thesis: "The Cartesian Product Algorithm"
+- Mark Dufour's MSc thesis: "Shed Skin: An Optimizing Python-to-C++ Compiler"
+- Module docstrings in `shedskin/infer.py` and `shedskin/graph.py`

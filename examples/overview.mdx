@@ -1,0 +1,156 @@
+---
+title: "Example Programs"
+description: "80+ example programs demonstrating Shed Skin's capabilities"
+---
+
+## Overview
+
+Shed Skin includes over **80 non-trivial example programs** totaling more than 25,000 lines of code (measured by sloccount). These examples demonstrate the compiler's capabilities across a wide range of domains and serve as excellent references for writing Shed Skin-compatible code.
+
+The examples range from simple algorithms to complex applications including emulators, game engines, graphics renderers, and computational tools.
+
+## Example Categories
+
+The examples cover diverse application domains:
+
+### Games & Entertainment
+- **Chess engines**: chess, sunfish
+- **Board games**: othello, othello2, othello3, score4 (connect four), go
+- **Puzzle solvers**: sudoku1-5, rubik, rubik2, sokoban, kanoodle, mastermind
+- **Classic games**: tictactoe, life (Conway's Game of Life), pylife
+
+### Emulators & Interpreters
+- **c64**: Full Commodore 64 emulator (3,332 lines)
+- **pygasus**: NES (Nintendo Entertainment System) emulator (1,510 lines)
+- **doom**: WAD rendering engine (666 lines)
+- **brainfuck**: Brainfuck interpreter
+
+### Graphics & Rendering
+- **Ray tracers**: mao, minilight, pygmy, pylot, yopyra, path_tracing
+- **3D engines**: gs (Wolfenstein-like), softrender
+- **Fractals**: mandelbrot, mandelbrot2, chaos
+- **Image processing**: hq2x (pixel art scaling), tonyjpegdecoder, minpng, stereo
+- **Graphics algorithms**: voronoi, voronoi2, pycsg (constructive solid geometry)
+
+### Algorithms & Data Structures
+- **Search algorithms**: astar (A*), dijkstra, dijkstra2
+- **Sorting**: timsort
+- **Graph algorithms**: mwmatching (maximum weighted matching), chull (3D convex hull)
+- **Optimization**: loop (Havlak loop recognition), genetic, genetic2, adatron (SVM)
+- **SAT solvers**: sat, pisang
+
+### Compression & Encoding
+- **Compression**: ac_encode, block (Huffman), lz2 (Lempel-Ziv), tarsalzp, rsync
+- **Cryptography**: sha (SHA-1), solitaire
+
+### Scientific Computing
+- **Physics simulations**: nbody, bh (Barnes-Hut), fysphun
+- **Machine learning**: neural1, neural2, kmeanspp
+- **Linear algebra**: linalg
+- **Quantum computing**: quameon (quantum Monte Carlo)
+
+### Benchmarks
+- **pystone**: Standard Python benchmark
+- **richards**: Standard benchmark
+- **sieve**: Prime number sieves (Eratosthenes and Atkin)
+
+### System & Network
+- **webserver**: Simple web server
+- **rdb**: iPod shuffle programmer
+- **msp_ss**: Serial bootstrap loader
+
+### Other
+- **plcfrs**: Natural language parser
+- **collatz**: Collatz record sequences
+- **ant**: TSP (Traveling Salesman Problem) approximation
+- **amaze**: Maze generator and solver
+
+## Repository
+
+All examples are available in the Shed Skin repository:
+
+[https://github.com/shedskin/shedskin/tree/master/examples](https://github.com/shedskin/shedskin/tree/master/examples)
+
+Each example is in its own directory containing:
+- Python source code (`.py` files)
+- README.md with specific instructions (if needed)
+- Related data files
+- CMakeLists.txt for building
+
+## Running Examples
+
+### Building All Examples
+
+To build and test all examples at once:
+
+```bash
+shedskin test
+```
+
+This command will compile and run all examples in the examples directory.
+
+### Building a Single Example
+
+To build and test a specific example:
+
+```bash
+shedskin test --target <example_name>
+```
+
+For example, to build the `timsort` example:
+
+```bash
+shedskin test --target timsort
+```
+
+### Manual Compilation
+
+To manually compile and run an example:
+
+```bash
+cd examples/mandelbrot
+shedskin build mandelbrot
+build/mandelbrot
+```
+
+### Extension Modules
+
+Some examples are designed as extension modules (marked with `extmod` in the examples list). These need to be compiled with the `-e` flag and imported into Python:
+
+```bash
+cd examples/doom
+shedskin build -e doom.py
+cp build/doom.so .
+python doom_main.py
+```
+
+### GUI Examples
+
+Examples marked with `GUI` require graphics libraries like pygame. Make sure you have the necessary dependencies installed:
+
+```bash
+pip install pygame
+```
+
+## Example Complexity
+
+The examples vary significantly in complexity:
+
+- **Simple** (< 100 lines): mandelbrot, sieve, life, ant
+- **Medium** (100-500 lines): chess, dijkstra, neural1, mao, rubik
+- **Complex** (500-1500 lines): doom, minilight, pygasus, rubik
+- **Very Complex** (> 1500 lines): c64 (3,332 lines), hq2x, othello3 (22,503 lines with auto-generated code)
+
+## Learning from Examples
+
+When writing code for Shed Skin, these examples serve as excellent references for:
+
+1. **Type patterns**: How to structure code so Shed Skin can infer types
+2. **Supported features**: What Python constructs work with Shed Skin
+3. **Performance techniques**: How to write fast code
+4. **Module usage**: How to use the 25+ supported standard library modules
+5. **Extension modules**: How to create Python-importable modules
+
+## Contributing Examples
+
+If you have an interesting example that works with Shed Skin, please suggest it in the [Shedskin discussion group](https://groups.google.com/g/shedskin-discuss) or post an [issue](https://github.com/shedskin/shedskin/issues/new/choose) in the GitHub repository.

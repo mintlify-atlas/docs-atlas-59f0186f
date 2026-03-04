@@ -1,0 +1,624 @@
+---
+title: Built-in Types
+description: Reference for Python built-in types supported by Shed Skin
+---
+
+Shed Skin supports the core Python built-in types with static type semantics. This page documents the available operations and methods for each type.
+
+## Numeric Types
+
+### int
+
+Integer type. By default, integers are 32-bit signed integers on most architectures.
+
+**Size Configuration:**
+- Default: 32-bit signed integer (on most architectures)
+- Use `--int64` flag for 64-bit integers
+- Use `--int32` flag to explicitly specify 32-bit
+- Use `--int128` flag for 128-bit integers
+
+**Supported Operations:**
+
+```python
+a = 42
+b = 10
+
+# Arithmetic
+c = a + b      # Addition
+c = a - b      # Subtraction
+c = a * b      # Multiplication
+c = a / b      # True division (returns float)
+c = a // b     # Floor division
+c = a % b      # Modulo
+c = a ** b     # Exponentiation
+c = divmod(a, b)  # Returns (quotient, remainder)
+
+# Bitwise operations
+c = a & b      # AND
+c = a | b      # OR
+c = a ^ b      # XOR
+c = a << b     # Left shift
+c = a >> b     # Right shift
+c = ~a         # Invert
+
+# Unary operations
+c = -a         # Negation
+c = +a         # Unary plus
+c = abs(a)     # Absolute value
+
+# Comparison
+if a == b: pass
+if a != b: pass
+if a < b: pass
+if a <= b: pass
+if a > b: pass
+if a >= b: pass
+```
+
+**Supported Methods:**
+
+```python
+n = 42
+
+# Count set bits
+count = n.bit_count()      # Number of 1 bits in binary
+
+# Bit length
+length = n.bit_length()     # Number of bits needed to represent n
+
+# Type check
+if n.is_integer():          # Always True for int
+    pass
+```
+
+**Important Notes:**
+- No arbitrary-precision arithmetic (unlike CPython)
+- Integer overflow behavior follows C++ semantics
+- Use appropriate size flag for your data range needs
+
+### float
+
+Floating-point number type.
+
+**Size Configuration:**
+- Default: 64-bit double precision
+- Use `--float32` flag for 32-bit single precision
+- Use `--float64` flag to explicitly specify 64-bit
+
+**Supported Operations:**
+
+```python
+a = 3.14
+b = 2.0
+
+# Arithmetic (same as int)
+c = a + b
+c = a - b
+c = a * b
+c = a / b
+c = a // b
+c = a % b
+c = a ** b
+
+# Unary operations
+c = -a
+c = +a
+c = abs(a)
+
+# Comparison
+if a == b: pass
+if a < b: pass
+# ... etc
+```
+
+**Supported Methods:**
+
+```python
+x = 3.5
+
+# Type check
+if x.is_integer():          # Check if value is integral
+    pass
+```
+
+**Mixing int and float:**
+
+```python
+a = 5        # int
+b = 2.0      # float
+c = a + b    # Result is float (7.0)
+d = a / 2    # Result is float (2.5)
+```
+
+### bool
+
+Boolean type with values `True` and `False`.
+
+**Supported Operations:**
+
+```python
+a = True
+b = False
+
+# Logical operations
+c = a and b
+c = a or b
+c = not a
+
+# Bitwise operations (bool behaves like int)
+c = a & b
+c = a | b
+c = a ^ b
+
+# Comparison
+if a == b: pass
+if a != b: pass
+
+# Arithmetic (bool acts as int: True=1, False=0)
+c = a + b      # Valid: True + False = 1
+```
+
+### complex
+
+Complex number type.
+
+**Supported Operations:**
+
+```python
+z1 = 3 + 4j
+z2 = 1 + 2j
+
+# Arithmetic
+z3 = z1 + z2
+z3 = z1 - z2
+z3 = z1 * z2
+z3 = z1 / z2
+
+# Unary
+z3 = -z1
+z3 = +z1
+
+# Access components
+real_part = z1.real
+imag_part = z1.imag
+
+# Absolute value (magnitude)
+mag = abs(z1)
+```
+
+## Sequence Types
+
+### str
+
+String type for text data.
+
+**Character Encoding:**
+- Currently restricted to 1-byte characters
+- No full Unicode/UTF-8 support
+- ASCII and Latin-1 work fine
+
+**Supported Operations:**
+
+```python
+s = "hello"
+t = "world"
+
+# Concatenation
+u = s + " " + t        # "hello world"
+
+# Repetition
+u = s * 3               # "hellohellohello"
+
+# Indexing
+ch = s[0]               # 'h'
+ch = s[-1]              # 'o'
+
+# Slicing
+sub = s[1:4]            # "ell"
+sub = s[::2]            # "hlo"
+sub = s[::-1]           # "olleh" (reverse)
+
+# Length
+n = len(s)              # 5
+
+# Membership
+if "ell" in s:          # True
+    pass
+
+# Comparison
+if s == t: pass
+if s < t: pass          # Lexicographic comparison
+
+# Iteration
+for ch in s:
+    print(ch)
+```
+
+**Supported Methods:**
+
+```python
+s = "Hello World"
+
+# Case conversion
+s.upper()               # "HELLO WORLD"
+s.lower()               # "hello world"
+s.capitalize()          # "Hello world"
+s.title()               # "Hello World"
+s.swapcase()            # "hELLO wORLD"
+
+# Search
+s.find("World")         # 6 (or -1 if not found)
+s.index("World")        # 6 (raises exception if not found)
+s.count("l")            # 3
+s.startswith("Hello")   # True
+s.endswith("World")     # True
+
+# Split and join
+words = s.split()       # ["Hello", "World"]
+parts = s.split("l")    # ["He", "", "o Wor", "d"]
+s2 = "-".join(words)    # "Hello-World"
+
+# Strip whitespace
+s = "  hello  "
+s.strip()               # "hello"
+s.lstrip()              # "hello  "
+s.rstrip()              # "  hello"
+
+# Replace
+s.replace("World", "Python")  # "Hello Python"
+
+# Type checks
+"123".isdigit()         # True
+"abc".isalpha()         # True
+"abc123".isalnum()      # True
+"   ".isspace()         # True
+
+# Formatting
+"{} {}".format("Hello", "World")  # "Hello World"
+"%s %d" % ("count", 42)            # "count 42"
+```
+
+### bytes
+
+Immutable sequence of bytes.
+
+**Supported Operations:**
+
+```python
+b = b"hello"
+
+# Similar to str operations
+len(b)                  # 5
+b[0]                    # 104 (ASCII value of 'h')
+b[1:4]                  # b"ell"
+b + b" world"           # b"hello world"
+
+# Conversion
+b.decode()              # Convert to str (default ASCII)
+s = "hello"
+s.encode()              # Convert str to bytes
+```
+
+### bytearray
+
+Mutable sequence of bytes.
+
+**Supported Operations:**
+
+```python
+ba = bytearray(b"hello")
+
+# All bytes operations plus:
+ba[0] = 72              # Modify in place -> b"Hello"
+ba.append(33)           # Append byte
+ba.extend(b"!!")        # Extend with bytes
+```
+
+### list
+
+Mutable sequence type.
+
+**Type Restriction:** All elements must be of the same type (or compatible types with common base).
+
+**Supported Operations:**
+
+```python
+lst = [1, 2, 3, 4, 5]
+
+# Indexing
+x = lst[0]              # 1
+x = lst[-1]             # 5
+
+# Slicing
+sub = lst[1:4]          # [2, 3, 4]
+sub = lst[::2]          # [1, 3, 5]
+
+# Length
+n = len(lst)            # 5
+
+# Membership
+if 3 in lst:            # True
+    pass
+
+# Concatenation
+lst2 = [6, 7]
+lst3 = lst + lst2       # [1, 2, 3, 4, 5, 6, 7]
+
+# Repetition
+lst3 = [0] * 5          # [0, 0, 0, 0, 0]
+
+# Iteration
+for x in lst:
+    print(x)
+
+# Comprehensions
+squares = [x*x for x in lst]              # [1, 4, 9, 16, 25]
+evens = [x for x in lst if x % 2 == 0]    # [2, 4]
+```
+
+**Supported Methods:**
+
+```python
+lst = [3, 1, 4, 1, 5]
+
+# Modify
+lst.append(9)           # [3, 1, 4, 1, 5, 9]
+lst.insert(0, 2)        # [2, 3, 1, 4, 1, 5, 9]
+lst.extend([2, 6])      # Add multiple elements
+lst[1] = 10             # Modify element
+
+# Remove
+lst.remove(1)           # Remove first occurrence
+x = lst.pop()           # Remove and return last
+x = lst.pop(0)          # Remove and return at index
+lst.clear()             # Remove all elements
+
+# Reorder
+lst.sort()              # Sort in place
+lst.reverse()           # Reverse in place
+
+# Search
+idx = lst.index(4)      # Find index of element
+count = lst.count(1)    # Count occurrences
+
+# Copy
+lst2 = lst.copy()       # Shallow copy
+```
+
+### tuple
+
+Immutable sequence type.
+
+**Type Restriction:** 
+- All elements same type for tuples of any length
+- Mixed types allowed for length-2 tuples only
+
+**Supported Operations:**
+
+```python
+t = (1, 2, 3)
+
+# Same readonly operations as list
+x = t[0]
+sub = t[1:]
+n = len(t)
+if 2 in t: pass
+
+# Cannot modify
+# t[0] = 5  # ERROR
+
+# Packing/unpacking
+a, b, c = t
+
+# Mixed-type tuples (length 2 only)
+pair = (42, "hello")    # OK
+triple = (1, "a", 2.0)  # NOT SUPPORTED
+```
+
+**Supported Methods:**
+
+```python
+t = (1, 2, 3, 2, 1)
+
+t.count(2)              # 2
+t.index(3)              # 2
+```
+
+## Mapping Type
+
+### dict
+
+Dictionary mapping type.
+
+**Type Restriction:** Keys must be of one type, values must be of one type. Keys must be hashable.
+
+**Supported Operations:**
+
+```python
+d = {'a': 1, 'b': 2, 'c': 3}
+
+# Access
+x = d['a']              # 1
+x = d.get('d', 0)       # 0 (default)
+
+# Modify
+d['d'] = 4              # Add/update
+del d['a']              # Remove
+
+# Membership (checks keys)
+if 'b' in d:            # True
+    pass
+
+# Length
+n = len(d)              # Number of key-value pairs
+
+# Iteration
+for key in d:
+    print(key, d[key])
+
+for key, value in d.items():
+    print(key, value)
+```
+
+**Supported Methods:**
+
+```python
+d = {'a': 1, 'b': 2}
+
+# Keys, values, items
+keys = d.keys()         # View of keys
+values = d.values()     # View of values
+items = d.items()       # View of (key, value) pairs
+
+# Get/set
+x = d.get('c', 0)       # Get with default
+x = d.setdefault('c', 3)  # Get or set default
+
+# Remove
+x = d.pop('a')          # Remove and return
+key, val = d.popitem()  # Remove and return arbitrary pair
+
+# Update
+d.update({'c': 3, 'd': 4})
+
+# Copy/clear
+d2 = d.copy()           # Shallow copy
+d.clear()               # Remove all items
+
+# Create from keys
+d = dict.fromkeys(['a', 'b'], 0)  # {'a': 0, 'b': 0}
+```
+
+## Set Types
+
+### set
+
+Unordered collection of unique elements.
+
+**Type Restriction:** All elements must be of the same type and hashable.
+
+**Supported Operations:**
+
+```python
+s = {1, 2, 3, 4, 5}
+t = {4, 5, 6, 7, 8}
+
+# Set operations
+u = s | t               # Union: {1,2,3,4,5,6,7,8}
+u = s & t               # Intersection: {4,5}
+u = s - t               # Difference: {1,2,3}
+u = s ^ t               # Symmetric difference: {1,2,3,6,7,8}
+
+# Membership
+if 3 in s:              # True
+    pass
+
+# Length
+n = len(s)              # 5
+
+# Comparison
+if s <= t:              # Subset
+    pass
+if s < t:               # Proper subset
+    pass
+```
+
+**Supported Methods:**
+
+```python
+s = {1, 2, 3}
+
+# Add/remove
+s.add(4)                # Add element
+s.remove(2)             # Remove (raises KeyError if not found)
+s.discard(5)            # Remove if present
+x = s.pop()             # Remove and return arbitrary element
+s.clear()               # Remove all
+
+# Set operations (method form)
+s = {1, 2, 3}
+t = {3, 4, 5}
+s.union(t)              # {1,2,3,4,5}
+s.intersection(t)       # {3}
+s.difference(t)         # {1,2}
+s.symmetric_difference(t)  # {1,2,4,5}
+
+# In-place operations
+s.update(t)             # s |= t
+s.intersection_update(t)  # s &= t
+s.difference_update(t)  # s -= t
+
+# Comparison
+s.issubset(t)
+s.issuperset(t)
+s.isdisjoint(t)
+
+# Copy
+s2 = s.copy()
+```
+
+### frozenset
+
+Immutable set type. Supports same operations as set except modifications.
+
+```python
+fs = frozenset([1, 2, 3])
+
+# Read-only operations only
+if 2 in fs: pass
+n = len(fs)
+u = fs | {4, 5}
+# fs.add(4)  # ERROR - immutable
+```
+
+## Type Checking and Conversion
+
+```python
+# Built-in type constructors
+x = int("42")           # String to int
+x = float("3.14")       # String to float
+s = str(42)             # Int to string
+b = bool(x)             # Convert to bool
+
+# Collection constructors
+lst = list((1,2,3))     # Tuple to list
+t = tuple([1,2,3])      # List to tuple
+s = set([1,2,2,3])      # List to set (removes duplicates)
+d = dict([('a',1), ('b',2)])  # List of pairs to dict
+```
+
+## None Type
+
+`None` represents absence of a value.
+
+**Important Restriction:** `None` can only be mixed with non-scalar types (not with int, float, bool, or complex).
+
+```python
+# OK - list can be None
+lst = [1, 2, 3]
+lst = None              # Valid
+
+# OK - object can be None
+obj = MyClass()
+obj = None              # Valid
+
+# NOT OK - scalar cannot be None
+x = 42
+# x = None              # ERROR
+
+# Instead use special sentinel value
+x = -1                  # Use -1 to indicate "no value"
+```
+
+## Performance Notes
+
+- **List operations:** Appending is O(1) amortized. Prefer `append()` over `+` in loops.
+- **String concatenation:** Use `"".join(list)` for concatenating many strings instead of `+` in a loop.
+- **Dictionary/set operations:** Hash-based, typically O(1) for lookup/insert.
+- **Integer size:** Smaller integer sizes can improve performance and memory usage if your values fit.
+- **Float size:** 32-bit floats use less memory but have less precision.
+
+## See Also
+
+- [Supported Modules](/library/supported-modules) - Standard library module reference
+- [Limitations](/library/limitations) - Type system limitations and restrictions

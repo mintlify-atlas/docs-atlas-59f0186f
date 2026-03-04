@@ -1,0 +1,453 @@
+---
+title: Extension Modules
+description: Create high-performance Python extension modules with Shed Skin
+---
+
+Shed Skin can compile Python code into extension modules that can be imported and used in regular Python programs. This allows you to accelerate performance-critical parts of your application while keeping the rest in Python.
+
+## Understanding Extension Modules
+
+An extension module is a compiled shared library (.so on Linux/macOS, .pyd on Windows) that Python can import like any other module. Shed Skin-generated extension modules provide:
+
+- **Massive speedups** (typically 10-100x) for computation-intensive code
+- **Seamless integration** with existing Python codebases
+- **No changes** to calling code - import and use normally
+
+<Tip>
+Use extension modules when you have performance bottlenecks in pure computation code that doesn't heavily rely on external libraries.
+</Tip>
+
+## Creating Your First Extension Module
+
+<Steps>
+
+### Write Compatible Python Code
+
+Create a file with functions you want to accelerate:
+
+```python
+# simple_module.py
+
+def func1(x):
+    return x + 1
+
+def func2(n):
+    d = dict([(i, i*i) for i in range(n)])
+    return d
+
+if __name__ == '__main__':
+    print(func1(5))
+    print(func2(10))
+```
+
+<Warning>
+The module must call its own functions (directly or indirectly) for type inference to work. Use `if __name__ == '__main__'` to prevent execution on import.
+</Warning>
+
+### Compile as Extension Module
+
+Use the `-e` or `--extmod` flag:
+
+```bash
+shedskin build -e simple_module
+```
+
+This creates a compiled module in the `build/` directory (Linux/macOS) or `build/Debug/` (Windows).
+
+### Import and Use
+
+Change to the build directory and import:
+
+```python
+# On Linux/macOS: cd build/
+# On Windows: cd build/Debug/
+
+>>> from simple_module import func1, func2
+>>> func1(5)
+6
+>>> func2(10)
+{0: 0, 1: 1, 2: 4, 3: 9, 4: 16, 5: 25, 6: 36, 7: 49, 8: 64, 9: 81}
+```
+
+</Steps>
+
+## Real-World Example
+
+Let's accelerate a prime sieve computation:
+
+```python
+# primes.py
+
+def sieve_of_eratosthenes(n):
+    """Return list of primes < n using Sieve of Eratosthenes."""
+    if n <= 2:
+        return []
+    
+    sieve = list(range(3, n, 2))
+    top = len(sieve)
+    
+    for si in sieve:
+        if si:
+            bottom = (si*si - 3) // 2
+            if bottom >= top:
+                break
+            sieve[bottom::si] = [0] * -((bottom - top) // si)
+    
+    return [2] + [el for el in sieve if el]
+
+def count_primes(n):
+    """Count how many primes are less than n."""
+    return len(sieve_of_eratosthenes(n))
+
+if __name__ == '__main__':
+    # These calls enable type inference
+    print(count_primes(100))
+    primes = sieve_of_eratosthenes(1000)
+    print(f"Found {len(primes)} primes")
+```
+
+**Compile it:**
+
+```bash
+shedskin build -e primes
+cp build/primes.so .  # Or build/Debug/primes.pyd on Windows
+```
+
+**Use it in your main program:**
+
+```python
+# main.py
+import time
+import primes  # The compiled extension module
+
+def benchmark():
+    start = time.time()
+    result = primes.count_primes(10_000_000)
+    elapsed = time.time() - start
+    print(f"Found {result} primes in {elapsed:.2f}s")
+
+if __name__ == '__main__':
+    benchmark()
+```
+
+## Extension Module Limitations
+
+<Warning>
+Extension modules have important restrictions compared to pure Python.
+</Warning>
+
+### Supported Types
+
+Only these types can be passed across the Python/C++ boundary:
+
+**Builtin types:**
+- Scalars: `int`, `float`, `complex`, `bool`, `str`, `bytes`, `bytearray`
+- Collections: `list`, `tuple`, `dict`, `set`
+- Special: `None`
+- User-defined class instances
+
+**Not supported:**
+- Functions/lambdas
+- Generators/iterators
+- File objects
+- Module objects
+
+```python
+# Good: Supported types
+def process_data(numbers, threshold):
+    return [x for x in numbers if x > threshold]
+
+def create_config():
+    class Config:
+        pass
+    c = Config()
+    c.value = 42
+    return c
+
+# Bad: Unsupported types
+def get_processor():
+    return lambda x: x * 2  # Cannot return function
+
+def get_iterator():
+    return iter([1, 2, 3])  # Cannot return iterator
+```
+
+### Data Conversion Overhead
+
+<Warning>
+Builtin types are completely converted on each call/return. This means:
+- Large data structures have conversion overhead
+- Changes to builtin objects don't persist across the boundary
+- User-defined class instances pass by reference (no conversion)
+</Warning>
+
+```python
+# extension.py
+def modify_list(items):
+    items.append(999)  # This append happens in C++
+    return items
+
+def modify_object(obj):
+    obj.value = 999  # This modifies the Python object
+
+class MyClass:
+    pass
+
+if __name__ == '__main__':
+    modify_list([1, 2, 3])
+    m = MyClass()
+    m.value = 0
+    modify_object(m)
+```
+
+```python
+# main.py using the extension
+import extension
+
+# Builtin types: converted each time
+original = [1, 2, 3]
+result = extension.modify_list(original)
+print(original)  # [1, 2, 3] - unchanged!
+print(result)    # [1, 2, 3, 999] - new list
+
+# User classes: passed by reference
+obj = extension.MyClass()
+obj.value = 0
+extension.modify_object(obj)
+print(obj.value)  # 999 - modified!
+```
+
+### Global Variable Behavior
+
+<Tip>
+Global variables are converted once at initialization. Changes in Python don't affect the extension module and vice versa.
+</Tip>
+
+```python
+# module.py
+COUNTER = 0
+
+def increment():
+    global COUNTER
+    COUNTER += 1
+    return COUNTER
+
+if __name__ == '__main__':
+    print(increment())
+```
+
+```python
+# After compilation, this happens:
+import module
+
+print(module.COUNTER)    # 0
+print(module.increment()) # 1
+print(module.COUNTER)    # 0 - unchanged!
+
+# Solution: Use getter/setter functions
+def get_counter():
+    return COUNTER
+```
+
+## Using with NumPy
+
+While Shed Skin doesn't support NumPy directly, you can pass arrays as lists:
+
+```python
+# matrix_ops.py
+def matrix_sum(matrix):
+    """Sum all elements in a 2D matrix (list of lists)."""
+    total = 0.0
+    for row in matrix:
+        for val in row:
+            total += val
+    return total
+
+def matrix_multiply_scalar(matrix, scalar):
+    """Multiply each element by a scalar."""
+    result = []
+    for row in matrix:
+        new_row = []
+        for val in row:
+            new_row.append(val * scalar)
+        result.append(new_row)
+    return result
+
+if __name__ == '__main__':
+    test = [[1.0, 2.0], [3.0, 4.0]]
+    print(matrix_sum(test))
+    print(matrix_multiply_scalar(test, 2.0))
+```
+
+**Compile and use with NumPy:**
+
+```bash
+shedskin build -e matrix_ops
+cp build/matrix_ops.so .
+```
+
+```python
+import numpy as np
+import matrix_ops
+
+# Create NumPy array
+array = np.array([[1.0, 2.0, 3.0],
+                  [4.0, 5.0, 6.0],
+                  [7.0, 8.0, 9.0]])
+
+# Convert to list, process, convert back
+total = matrix_ops.matrix_sum(array.tolist())
+print(f"Sum: {total}")
+
+result_list = matrix_ops.matrix_multiply_scalar(array.tolist(), 2.0)
+result_array = np.array(result_list)
+print(result_array)
+```
+
+<Warning>
+Conversion with `.tolist()` is expensive. Only worthwhile if significant computation happens inside the extension module.
+</Warning>
+
+## Multiprocessing Integration
+
+Extension modules work great with Python's multiprocessing:
+
+```python
+# compute.py
+def partial_sum(start, end):
+    """Calculate partial sum of a series."""
+    total = 0.0
+    for x in range(start, end):
+        if x % 2 == 0:
+            total -= 1.0 / x
+        else:
+            total += 1.0 / x
+    return total
+
+if __name__ == '__main__':
+    print(partial_sum(1, 1000))
+```
+
+**Compile:**
+
+```bash
+shedskin build -e compute
+cp build/compute.so .
+```
+
+**Use with multiprocessing:**
+
+```python
+# parallel.py
+from multiprocessing import Pool
+import compute
+
+def worker(args):
+    start, end = args
+    return compute.partial_sum(start, end)
+
+if __name__ == '__main__':
+    # Split work across processes
+    ranges = [
+        (1, 5_000_000),
+        (5_000_001, 10_000_000),
+        (10_000_001, 15_000_000),
+        (15_000_001, 20_000_000)
+    ]
+    
+    with Pool(processes=4) as pool:
+        results = pool.map(worker, ranges)
+    
+    total = sum(results)
+    print(f"Result: {total}")
+```
+
+## Distribution and Deployment
+
+<Steps>
+
+### Copy Required Libraries
+
+Your extension module depends on system libraries:
+
+```bash
+ldd build/module.so
+# libgc.so.1 => /usr/lib/libgc.so.1
+# libpcre2-8.so.0 => /lib/x86_64-linux-gnu/libpcre2-8.so.0
+```
+
+### Bundle Libraries (Optional)
+
+For systems without these libraries:
+
+```bash
+cp /usr/lib/libgc.so.1 .
+cp /lib/x86_64-linux-gnu/libpcre2-8.so.0 .
+LD_LIBRARY_PATH=. python main.py
+```
+
+### Consider Setup.py
+
+Create a proper Python package:
+
+```python
+# setup.py
+from setuptools import setup, Extension
+import subprocess
+
+# Generate C++ code
+subprocess.run(['shedskin', 'translate', '-e', 'mymodule'])
+
+setup(
+    name='mymodule',
+    ext_modules=[Extension('mymodule', sources=['mymodule.cpp'])],
+)
+```
+
+</Steps>
+
+## Best Practices
+
+<Tip>
+**Keep the interface simple:** Pass basic types, return basic types. Use user classes for complex data.
+</Tip>
+
+<Tip>
+**Profile first:** Ensure the code is actually a bottleneck before creating an extension module.
+</Tip>
+
+<Tip>
+**Minimize data transfer:** Design functions that do significant work per call to amortize conversion overhead.
+</Tip>
+
+<Tip>
+**Test both versions:** Keep the Python version and test that both produce identical results.
+</Tip>
+
+## Troubleshooting
+
+**Import fails:**
+```bash
+# Check library dependencies
+ldd build/module.so  # Linux
+otool -L build/module.so  # macOS
+```
+
+**Type inference fails:**
+```python
+# Ensure all functions are called in __main__
+if __name__ == '__main__':
+    # Call every exported function
+    func1(5)
+    func2(10, 'test')
+    # If func3 calls func4, you only need to call func3
+```
+
+**Segmentation fault:**
+- Likely a type mismatch between Python and C++
+- Review None handling (only with non-scalars)
+- Check array/list bounds
+
+## Performance Tips
+
+See the [Optimization guide](/guides/optimization) for detailed performance tuning of extension modules.

@@ -1,0 +1,384 @@
+---
+title: Shed Skin Documentation
+description: Compile Python to optimized C++ with type inference
+mode: custom
+---
+
+<div className="relative overflow-hidden dark:bg-[#0f1117] bg-white">
+  {/* Hero Section */}
+  <div className="relative py-20 px-6 sm:px-8 lg:px-12">
+    <div className="max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        {/* Hero Content */}
+        <div className="lg:col-span-7">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold dark:text-white text-gray-900 mb-6">
+            Compile Python to Optimized C++
+          </h1>
+          <p className="text-lg sm:text-xl dark:text-gray-400 text-gray-600 mb-8 max-w-2xl">
+            Shed Skin is a restricted-Python-to-C++ compiler that translates implicitly statically typed Python programs into optimized C++ code, delivering speedups of 1-100x over CPython.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <a 
+              href="/quickstart" 
+              className="inline-flex items-center px-6 py-3 rounded-lg bg-[#3178C6] text-white font-semibold hover:bg-[#1E5A8E] transition-colors"
+            >
+              Get Started
+              <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+            <a 
+              href="/cli/overview" 
+              className="inline-flex items-center px-6 py-3 rounded-lg border border-gray-300 dark:border-[#27272a] dark:bg-white/10 bg-gray-50 dark:text-gray-100 text-gray-900 font-semibold hover:dark:border-[#3178C6] hover:border-[#3178C6] transition-colors"
+            >
+              CLI Reference
+            </a>
+          </div>
+        </div>
+        
+        {/* Code Example */}
+        <div className="lg:col-span-5">
+          <div className="relative dark:bg-[#1a1d27] bg-gray-50 rounded-2xl p-6 border dark:border-[#27272a] border-gray-200">
+            <div className="absolute top-4 left-4 flex gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            </div>
+            <pre className="mt-8 text-sm dark:text-gray-300 text-gray-700 overflow-x-auto">
+              <code>{`# sieve.py
+def sieve(n):
+    primes = [True] * n
+    for i in range(2, int(n**0.5) + 1):
+        if primes[i]:
+            for j in range(i*i, n, i):
+                primes[j] = False
+    return [i for i in range(2, n) 
+            if primes[i]]
+
+# Compile and run
+$ shedskin build sieve
+$ build/sieve
+# 20x faster than CPython!`}</code>
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{/* Quick Start Section */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-semibold dark:text-white text-gray-900 mb-4">
+    Quick start
+  </h2>
+  <p className="text-base dark:text-gray-400 text-gray-600 mb-8">
+    Get up and running with Shed Skin in minutes
+  </p>
+  
+  <Steps>
+    <Step title="Install Shed Skin">
+      Install using pip or your package manager:
+      
+      ```bash
+      pip install shedskin
+      ```
+      
+      You'll also need a C++ compiler and the Boehm garbage collector. See the [installation guide](/installation) for platform-specific instructions.
+    </Step>
+    
+    <Step title="Write compatible Python code">
+      Create a Python file with implicitly statically typed code:
+      
+      ```python test.py
+      def factorial(n: int) -> int:
+          if n <= 1:
+              return 1
+          return n * factorial(n - 1)
+
+      print(factorial(10))
+      ```
+      
+      <Note>
+        Shed Skin requires implicit static typing — variables must maintain a single type throughout execution.
+      </Note>
+    </Step>
+    
+    <Step title="Compile to C++">
+      Use the `shedskin build` command to compile your Python code:
+      
+      ```bash
+      shedskin build test
+      ```
+      
+      This generates optimized C++ code and compiles it into an executable in the `build/` directory.
+    </Step>
+    
+    <Step title="Run your compiled program">
+      Execute the compiled binary for dramatic performance improvements:
+      
+      ```bash
+      ./build/test
+      ```
+      
+      <Tip>
+        Typical speedups range from 12x to 20x compared to CPython, with some programs achieving 100x improvements.
+      </Tip>
+    </Step>
+  </Steps>
+</div>
+
+{/* Features Grid */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-semibold dark:text-white text-gray-900 mb-4">
+    Key features
+  </h2>
+  <p className="text-base dark:text-gray-400 text-gray-600 mb-8">
+    Everything you need to accelerate Python performance
+  </p>
+  
+  <CardGroup cols={2}>
+    <Card title="Type inference" icon="brain" href="/advanced/type-inference">
+      Automatic type inference eliminates the need for explicit type annotations while generating statically typed C++ code.
+    </Card>
+    <Card title="Standalone executables" icon="box" href="/cli/build">
+      Generate fully compiled executables or extension modules that can be imported into larger Python programs.
+    </Card>
+    <Card title="30+ standard modules" icon="books" href="/library/supported-modules">
+      Built-in support for common Python modules including random, re, itertools, and more.
+    </Card>
+    <Card title="Exceptional performance" icon="gauge-high" href="/examples/benchmarks">
+      Achieve 1-100x speedups over CPython with typical improvements of 12-20x for computation-intensive code.
+    </Card>
+    <Card title="Boehm GC integration" icon="recycle" href="/advanced/c++-integration">
+      Automatic memory management using the battle-tested Boehm garbage collector.
+    </Card>
+    <Card title="Extension modules" icon="puzzle-piece" href="/guides/extension-modules">
+      Create C++ extension modules that integrate seamlessly with your existing Python codebase.
+    </Card>
+  </CardGroup>
+</div>
+
+{/* Documentation Navigation */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-semibold dark:text-white text-gray-900 mb-4">
+    Explore the documentation
+  </h2>
+  <p className="text-base dark:text-gray-400 text-gray-600 mb-8">
+    Learn how to use Shed Skin effectively
+  </p>
+  
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <a href="/concepts/typing-restrictions" className="group block rounded-2xl border dark:border-[#27272a] border-gray-200 dark:hover:border-[#3178C6] hover:border-[#3178C6] overflow-hidden transition-colors no-underline dark:bg-[#1a1d27] bg-gray-50">
+      <div className="p-6">
+        <h3 className="text-base font-semibold dark:text-white text-gray-900 mb-2">Core Concepts</h3>
+        <p className="text-sm dark:text-gray-400 text-gray-600 mb-4">Understand typing restrictions, Python subset support, and how Shed Skin works under the hood.</p>
+        <span className="text-sm dark:text-gray-400 text-gray-600 group-hover:dark:text-[#3178C6] group-hover:text-[#3178C6] inline-flex items-center">
+          Learn the fundamentals
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+    </a>
+    
+    <a href="/guides/writing-compatible-code" className="group block rounded-2xl border dark:border-[#27272a] border-gray-200 dark:hover:border-[#3178C6] hover:border-[#3178C6] overflow-hidden transition-colors no-underline dark:bg-[#1a1d27] bg-gray-50">
+      <div className="p-6">
+        <h3 className="text-base font-semibold dark:text-white text-gray-900 mb-2">Guides</h3>
+        <p className="text-sm dark:text-gray-400 text-gray-600 mb-4">Step-by-step tutorials for writing compatible code, creating extension modules, and optimizing performance.</p>
+        <span className="text-sm dark:text-gray-400 text-gray-600 group-hover:dark:text-[#3178C6] group-hover:text-[#3178C6] inline-flex items-center">
+          Read the guides
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+    </a>
+    
+    <a href="/cli/overview" className="group block rounded-2xl border dark:border-[#27272a] border-gray-200 dark:hover:border-[#3178C6] hover:border-[#3178C6] overflow-hidden transition-colors no-underline dark:bg-[#1a1d27] bg-gray-50">
+      <div className="p-6">
+        <h3 className="text-base font-semibold dark:text-white text-gray-900 mb-2">CLI Reference</h3>
+        <p className="text-sm dark:text-gray-400 text-gray-600 mb-4">Complete command-line reference for build, translate, and all compilation options.</p>
+        <span className="text-sm dark:text-gray-400 text-gray-600 group-hover:dark:text-[#3178C6] group-hover:text-[#3178C6] inline-flex items-center">
+          View CLI docs
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+    </a>
+    
+    <a href="/examples/overview" className="group block rounded-2xl border dark:border-[#27272a] border-gray-200 dark:hover:border-[#3178C6] hover:border-[#3178C6] overflow-hidden transition-colors no-underline dark:bg-[#1a1d27] bg-gray-50">
+      <div className="p-6">
+        <h3 className="text-base font-semibold dark:text-white text-gray-900 mb-2">Examples</h3>
+        <p className="text-sm dark:text-gray-400 text-gray-600 mb-4">Explore 80+ real-world examples including games, algorithms, and performance benchmarks.</p>
+        <span className="text-sm dark:text-gray-400 text-gray-600 group-hover:dark:text-[#3178C6] group-hover:text-[#3178C6] inline-flex items-center">
+          Browse examples
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+    </a>
+  </div>
+</div>
+
+{/* Performance Comparison */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-semibold dark:text-white text-gray-900 mb-4">
+    Performance comparison
+  </h2>
+  <p className="text-base dark:text-gray-400 text-gray-600 mb-8">
+    Shed Skin delivers exceptional performance improvements over CPython and other Python implementations
+  </p>
+  
+  <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-2xl p-8 border dark:border-[#27272a] border-gray-200">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium dark:text-gray-300 text-gray-700">CPython 3.11</span>
+        <span className="text-sm dark:text-gray-400 text-gray-600">11.4 seconds (baseline)</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium dark:text-gray-300 text-gray-700">PyPy 3.9</span>
+        <span className="text-sm dark:text-gray-400 text-gray-600">5.8 seconds (2x faster)</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium dark:text-gray-300 text-gray-700">Numba 0.56</span>
+        <span className="text-sm dark:text-gray-400 text-gray-600">2.5 seconds (4.5x faster)</span>
+      </div>
+      <div className="flex items-center justify-between border-t dark:border-[#27272a] border-gray-200 pt-4">
+        <span className="text-sm font-bold dark:text-white text-gray-900">Shed Skin 0.9.9</span>
+        <span className="text-sm font-bold text-[#3178C6]">1.9 seconds (6x faster)</span>
+      </div>
+    </div>
+  </div>
+  
+  <p className="text-sm dark:text-gray-500 text-gray-500 mt-4">
+    Benchmark: Sieve of Eratosthenes with n=100,000,000. See the <a href="/examples/benchmarks" className="text-[#3178C6] hover:underline">full benchmark suite</a> for more comparisons.
+  </p>
+</div>
+
+{/* When to Use Shed Skin */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-semibold dark:text-white text-gray-900 mb-4">
+    When to use Shed Skin
+  </h2>
+  
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div>
+      <h3 className="text-lg font-semibold dark:text-white text-gray-900 mb-4 flex items-center">
+        <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+        Good fit
+      </h3>
+      <ul className="space-y-2 text-sm dark:text-gray-400 text-gray-600">
+        <li className="flex items-start">
+          <svg className="w-4 h-4 mr-2 mt-0.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Computation-intensive Python programs (hundreds to thousands of lines)
+        </li>
+        <li className="flex items-start">
+          <svg className="w-4 h-4 mr-2 mt-0.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Code that can be made independent of external libraries
+        </li>
+        <li className="flex items-start">
+          <svg className="w-4 h-4 mr-2 mt-0.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Performance-critical modules in larger Python applications
+        </li>
+        <li className="flex items-start">
+          <svg className="w-4 h-4 mr-2 mt-0.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Algorithms, simulations, and numeric computations
+        </li>
+      </ul>
+    </div>
+    
+    <div>
+      <h3 className="text-lg font-semibold dark:text-white text-gray-900 mb-4 flex items-center">
+        <svg className="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        Not recommended
+      </h3>
+      <ul className="space-y-2 text-sm dark:text-gray-400 text-gray-600">
+        <li className="flex items-start">
+          <svg className="w-4 h-4 mr-2 mt-0.5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Programs heavily dependent on unsupported libraries
+        </li>
+        <li className="flex items-start">
+          <svg className="w-4 h-4 mr-2 mt-0.5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Code using dynamic Python features (eval, getattr, *args)
+        </li>
+        <li className="flex items-start">
+          <svg className="w-4 h-4 mr-2 mt-0.5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Very large codebases (>6,000 lines) due to type inference limitations
+        </li>
+        <li className="flex items-start">
+          <svg className="w-4 h-4 mr-2 mt-0.5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Applications requiring arbitrary-size arithmetic or full Unicode support
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+{/* Community & Support */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-semibold dark:text-white text-gray-900 mb-4">
+    Community & support
+  </h2>
+  <p className="text-base dark:text-gray-400 text-gray-600 mb-8">
+    Get help and connect with other Shed Skin users
+  </p>
+  
+  <CardGroup cols={2}>
+    <Card title="GitHub Discussions" icon="github" href="https://github.com/shedskin/shedskin/discussions">
+      Ask questions, share projects, and discuss features with the community.
+    </Card>
+    <Card title="Issue Tracker" icon="bug" href="https://github.com/shedskin/shedskin/issues">
+      Report bugs, request features, or browse known issues.
+    </Card>
+    <Card title="Contributing" icon="code-pull-request" href="/resources/contributing">
+      Learn how to contribute code, documentation, or supported modules.
+    </Card>
+    <Card title="FAQ" icon="circle-question" href="/resources/faq">
+      Find answers to common questions about Shed Skin usage and limitations.
+    </Card>
+  </CardGroup>
+</div>
+
+{/* Ready to Start CTA */}
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="relative rounded-2xl overflow-hidden dark:bg-gradient-to-r dark:from-[#1E5A8E] dark:to-[#3178C6] bg-gradient-to-r from-[#3178C6] to-[#5B9BD5] p-12 text-center">
+    <h2 className="text-3xl font-bold text-white mb-4">
+      Ready to accelerate your Python code?
+    </h2>
+    <p className="text-lg text-white/90 mb-8 max-w-2xl mx-auto">
+      Start compiling Python to optimized C++ and achieve dramatic performance improvements.
+    </p>
+    <a 
+      href="/quickstart" 
+      className="inline-flex items-center px-8 py-4 rounded-lg bg-white text-[#3178C6] font-semibold hover:bg-gray-100 transition-colors"
+    >
+      Get Started Now
+      <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    </a>
+  </div>
+</div>

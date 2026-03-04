@@ -1,0 +1,681 @@
+---
+title: Supported Standard Library Modules
+description: Complete reference of Python standard library modules supported by Shed Skin
+---
+
+Shed Skin supports approximately 30 standard library modules, either fully or partially. This page provides a comprehensive overview of each supported module, organized by category.
+
+## Data Structures
+
+### array
+
+Provides space-efficient arrays of numeric values.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import array
+
+# Create array of integers
+arr = array.array('i', [1, 2, 3, 4, 5])
+arr.append(6)
+print(arr[0])  # 1
+```
+
+### collections
+
+Provides specialized container datatypes.
+
+**Support Level:** Partial (defaultdict, deque only)
+
+**Supported:**
+- `defaultdict` - Dictionary with default factory function
+- `deque` - Double-ended queue with fast appends/pops
+
+**Not Supported:** namedtuple, Counter, OrderedDict, ChainMap
+
+**Example:**
+```python
+from collections import defaultdict, deque
+
+# defaultdict usage
+d = defaultdict(int)
+d['count'] += 1
+
+# deque usage
+dq = deque([1, 2, 3])
+dq.append(4)
+dq.appendleft(0)
+```
+
+### heapq
+
+Heap queue algorithm (priority queue).
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import heapq
+
+heap = []
+heapq.heappush(heap, 3)
+heapq.heappush(heap, 1)
+heapq.heappush(heap, 2)
+print(heapq.heappop(heap))  # 1
+```
+
+### bisect
+
+Array bisection algorithms for maintaining sorted lists.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import bisect
+
+sorted_list = [1, 3, 5, 7]
+bisect.insort(sorted_list, 4)
+print(sorted_list)  # [1, 3, 4, 5, 7]
+```
+
+## Text Processing
+
+### re
+
+Regular expression operations using PCRE syntax.
+
+**Support Level:** Full support (PCRE-compatible)
+
+**Example:**
+```python
+import re
+
+pattern = re.compile(r'\d+')
+match = pattern.search('The answer is 42')
+if match:
+    print(match.group())  # '42'
+```
+
+**Note:** Uses PCRE2 library, which may have slight syntax differences from Python's `re` module.
+
+### string
+
+Common string operations and constants.
+
+**Support Level:** Partial
+
+**Supported:** String constants (ascii_letters, digits, etc.)
+
+**Not Supported:** Format, Template classes
+
+**Example:**
+```python
+import string
+
+print(string.ascii_lowercase)  # 'abcdefghijklmnopqrstuvwxyz'
+print(string.digits)  # '0123456789'
+```
+
+### fnmatch
+
+Unix filename pattern matching.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import fnmatch
+
+if fnmatch.fnmatch('test.py', '*.py'):
+    print('Python file!')
+```
+
+## File and Data Processing
+
+### csv
+
+CSV file reading and writing.
+
+**Support Level:** Partial (ASCII-only)
+
+**Supported:**
+- `reader` - Read CSV files
+- `writer` - Write CSV files
+- `DictReader` - Read CSV as dictionaries
+- `DictWriter` - Write dictionaries as CSV
+
+**Not Supported:** Sniffer class
+
+**Limitations:** ASCII characters only, no full Unicode support
+
+**Example:**
+```python
+import csv
+
+with open('data.csv', 'w') as f:
+    writer = csv.writer(f)
+    writer.writerow(['name', 'age'])
+    writer.writerow(['Alice', '30'])
+```
+
+### configparser
+
+Configuration file parser.
+
+**Support Level:** Partial
+
+**Supported:** ConfigParser class
+
+**Not Supported:** SafeConfigParser (deprecated in Python 3)
+
+**Example:**
+```python
+import configparser
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+value = config.get('section', 'key')
+```
+
+### struct
+
+Interpret bytes as packed binary data.
+
+**Support Level:** Partial
+
+**Supported:** pack, unpack, calcsize functions
+
+**Not Supported:** Struct class, iter_unpack
+
+**Example:**
+```python
+import struct
+
+data = struct.pack('i', 42)
+value = struct.unpack('i', data)[0]
+```
+
+### base64
+
+Base64 encoding and decoding.
+
+**Support Level:** Partial
+
+**Supported:** Standard base64 encoding/decoding
+
+**Not Supported:** base16, base32, base85 variants
+
+**Example:**
+```python
+import base64
+
+encoded = base64.b64encode(b'hello')
+decoded = base64.b64decode(encoded)
+```
+
+### binascii
+
+Convert between binary and ASCII.
+
+**Support Level:** Partial
+
+**Supported:** hex, unhex, crc32, and other common functions
+
+**Not Supported:** base16, base32, base85 variants
+
+## Mathematical Operations
+
+### math
+
+Mathematical functions.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import math
+
+result = math.sqrt(16.0)
+angle = math.sin(math.pi / 2)
+```
+
+### math.integer
+
+Integer-specific mathematical operations.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import math.integer
+
+gcd_result = math.integer.gcd(48, 18)
+```
+
+### random
+
+Generate pseudo-random numbers.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import random
+
+random.seed(42)
+value = random.randint(1, 10)
+choice = random.choice(['a', 'b', 'c'])
+random.shuffle(my_list)
+```
+
+**Note:** Uses Mersenne Twister algorithm. Use `--random` flag for faster rand() generator.
+
+### colorsys
+
+Conversions between color systems.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import colorsys
+
+rgb = colorsys.hsv_to_rgb(0.5, 1.0, 1.0)
+```
+
+## Algorithm Support
+
+### itertools
+
+Functions creating iterators for efficient looping.
+
+**Support Level:** Partial
+
+**Supported:** count, cycle, repeat, chain, compress, dropwhile, filterfalse, groupby, islice, takewhile, tee, zip_longest, product, permutations, combinations, combinations_with_replacement, accumulate, pairwise, batched
+
+**Not Supported:** starmap
+
+**Example:**
+```python
+import itertools
+
+# Infinite counter
+for i in itertools.count(10, 2):
+    if i > 20:
+        break
+    print(i)  # 10, 12, 14, 16, 18, 20
+
+# Combinations
+for combo in itertools.combinations([1, 2, 3], 2):
+    print(combo)  # (1,2), (1,3), (2,3)
+```
+
+### functools
+
+Higher-order functions and operations on callable objects.
+
+**Support Level:** Minimal (reduce only)
+
+**Supported:** reduce function
+
+**Not Supported:** partial, lru_cache, wraps, and other decorators
+
+**Example:**
+```python
+from functools import reduce
+
+total = reduce(lambda x, y: x + y, [1, 2, 3, 4])
+print(total)  # 10
+```
+
+## System and OS
+
+### sys
+
+System-specific parameters and functions.
+
+**Support Level:** Partial
+
+**Supported:**
+- `sys.argv` - Command-line arguments
+- `sys.exit()` - Exit program
+- `sys.stdin`, `sys.stdout`, `sys.stderr` - Standard streams
+- `sys.maxsize` - Largest integer
+
+**Not Supported:** Many introspection features, sys.modules manipulation
+
+**Example:**
+```python
+import sys
+
+if len(sys.argv) > 1:
+    filename = sys.argv[1]
+    print(f'Processing {filename}')
+```
+
+### os
+
+Miscellaneous operating system interfaces.
+
+**Support Level:** Partial
+
+**Supported:**
+- File operations: `os.remove()`, `os.rename()`, `os.listdir()`
+- Directory operations: `os.mkdir()`, `os.rmdir()`, `os.getcwd()`, `os.chdir()`
+- Process: `os.system()`, `os.getpid()`
+- Environment: `os.getenv()`, `os.environ`
+
+**Example:**
+```python
+import os
+
+files = os.listdir('.')
+for f in files:
+    if f.endswith('.py'):
+        print(f)
+```
+
+### os.path
+
+Common pathname manipulations.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import os.path
+
+if os.path.exists('file.txt'):
+    size = os.path.getsize('file.txt')
+    base = os.path.basename('file.txt')
+    dir = os.path.dirname('/path/to/file.txt')
+```
+
+### stat
+
+Interpreting stat() results.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import os
+import stat
+
+st = os.stat('file.txt')
+if stat.S_ISREG(st.st_mode):
+    print('Regular file')
+```
+
+### glob
+
+Unix style pathname pattern expansion.
+
+**Support Level:** Partial
+
+**Supported:** Basic glob patterns
+
+**Not Supported:** escape, translate functions
+
+**Example:**
+```python
+import glob
+
+py_files = glob.glob('*.py')
+for f in py_files:
+    print(f)
+```
+
+### getopt
+
+C-style command-line option parser.
+
+**Support Level:** Full support
+
+**Example:**
+```python
+import getopt
+import sys
+
+opts, args = getopt.getopt(sys.argv[1:], 'ho:', ['help', 'output='])
+for opt, arg in opts:
+    if opt in ('-h', '--help'):
+        print('Usage: ...')
+```
+
+## Date and Time
+
+### time
+
+Time access and conversions.
+
+**Support Level:** Partial
+
+**Supported:**
+- `time.time()` - Current time as float
+- `time.sleep()` - Sleep for seconds
+- `time.clock()` - Process time
+- `time.strftime()` - Format time
+
+**Example:**
+```python
+import time
+
+start = time.time()
+time.sleep(1.0)
+elapsed = time.time() - start
+```
+
+### datetime
+
+Basic date and time types.
+
+**Support Level:** Partial (not well tested)
+
+**Supported:** date, time, datetime, timedelta classes
+
+**Limitations:** May have edge cases or incomplete functionality
+
+**Example:**
+```python
+from datetime import datetime, timedelta
+
+now = datetime.now()
+tomorrow = now + timedelta(days=1)
+print(tomorrow.strftime('%Y-%m-%d'))
+```
+
+## I/O and Files
+
+### io
+
+Core tools for working with streams.
+
+**Support Level:** Partial
+
+**Supported:**
+- `io.BytesIO` - In-memory bytes buffer
+- `io.StringIO` - In-memory string buffer
+
+**Example:**
+```python
+import io
+
+buffer = io.StringIO()
+buffer.write('Hello ')
+buffer.write('World')
+contents = buffer.getvalue()
+```
+
+## Networking
+
+### socket
+
+Low-level networking interface.
+
+**Support Level:** Partial (not well tested)
+
+**Supported:** Basic socket operations for TCP/UDP
+
+**Limitations:** May be incomplete or unstable
+
+**Example:**
+```python
+import socket
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect(('localhost', 8080))
+sock.send(b'GET / HTTP/1.0\r\n\r\n')
+data = sock.recv(1024)
+sock.close()
+```
+
+### select
+
+I/O completion waiting.
+
+**Support Level:** Partial (not well tested)
+
+**Example:**
+```python
+import select
+
+ready = select.select([socket], [], [], timeout)
+```
+
+## Memory and System
+
+### gc
+
+Garbage collector interface.
+
+**Support Level:** Minimal
+
+**Supported:**
+- `gc.enable()` - Enable garbage collection
+- `gc.disable()` - Disable garbage collection
+- `gc.collect()` - Force collection
+
+**Example:**
+```python
+import gc
+
+gc.disable()  # Disable for performance-critical section
+# ... critical code ...
+gc.enable()
+```
+
+**Note:** Uses Boehm GC. Use `--nogc` flag to disable entirely.
+
+### copy
+
+Shallow and deep copy operations.
+
+**Support Level:** Partial
+
+**Supported:** copy, deepcopy functions
+
+**Not Supported:** replace function
+
+**Example:**
+```python
+import copy
+
+original = [[1, 2], [3, 4]]
+shallow = copy.copy(original)
+deep = copy.deepcopy(original)
+```
+
+### mmap
+
+Memory-mapped file support.
+
+**Support Level:** Partial (not well tested)
+
+**Limitations:** May have platform-specific issues
+
+**Example:**
+```python
+import mmap
+
+with open('file.dat', 'r+b') as f:
+    mm = mmap.mmap(f.fileno(), 0)
+    data = mm.read(100)
+    mm.close()
+```
+
+### signal
+
+Set handlers for asynchronous events.
+
+**Support Level:** Partial
+
+**Supported:** Basic signal handling on Unix-like systems
+
+**Example:**
+```python
+import signal
+
+def handler(signum, frame):
+    print('Signal received')
+
+signal.signal(signal.SIGINT, handler)
+```
+
+## Usage in Programs
+
+To use any supported module in your Shed Skin program, simply import it as you would in regular Python:
+
+```python
+import random
+import re
+from collections import deque
+
+# Your code here
+```
+
+## Module Support Summary
+
+| Module | Support Level | Notes |
+|--------|--------------|-------|
+| array | Full | Space-efficient numeric arrays |
+| base64 | Partial | No base16/32/85 variants |
+| binascii | Partial | No base16/32/85 variants |
+| bisect | Full | Array bisection |
+| collections | Partial | defaultdict, deque only |
+| colorsys | Full | Color system conversions |
+| configparser | Partial | No SafeConfigParser |
+| copy | Partial | No replace function |
+| csv | Partial | ASCII-only, no Sniffer |
+| datetime | Partial | Not well tested |
+| fnmatch | Full | Filename patterns |
+| functools | Minimal | reduce only |
+| gc | Minimal | enable, disable, collect |
+| getopt | Full | Command-line parsing |
+| glob | Partial | No escape, translate |
+| heapq | Full | Priority queues |
+| io | Partial | BytesIO, StringIO |
+| itertools | Partial | No starmap |
+| math | Full | Mathematical functions |
+| math.integer | Full | Integer math operations |
+| mmap | Partial | Not well tested |
+| os | Partial | Core functions only |
+| os.path | Full | Path manipulations |
+| random | Full | Pseudo-random numbers |
+| re | Full | PCRE-compatible regex |
+| select | Partial | Not well tested |
+| signal | Partial | Basic signal handling |
+| socket | Partial | Not well tested |
+| stat | Full | File statistics |
+| string | Partial | No Format, Template |
+| struct | Partial | No Struct, iter_unpack |
+| sys | Partial | Core functionality |
+| time | Partial | Basic time functions |
+
+## See Also
+
+- [Built-in Types](/library/builtin-types) - Documentation on built-in Python types
+- [Library Limitations](/library/limitations) - What's not supported and why

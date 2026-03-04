@@ -1,0 +1,487 @@
+---
+title: "Performance Tuning"
+description: "Advanced optimization techniques for Shed Skin programs"
+---
+
+## Overview
+
+Shed Skin provides several mechanisms for optimizing program performance. This guide covers advanced optimization flags, manual optimization techniques, and profiling strategies.
+
+## Optimization Flags
+
+### Basic Optimization
+
+Compile with standard optimizations:
+
+```bash
+shedskin myprogram.py
+make
+```
+
+This uses default C++ compiler flags: `-O2 -march=native`
+
+### Advanced Compiler Flags  
+
+Customize optimization with a flags file:
+
+```bash
+shedskin --flags=optimize myprogram.py
+```
+
+Create `~/.shedskin/flags/optimize`:
+```
+-O3                    # Maximum optimization
+-march=native          # CPU-specific instructions
+-flto                  # Link-time optimization  
+-ffast-math           # Fast floating-point math
+-funroll-loops        # Unroll loops
+-finline-functions    # Aggressive inlining
+```
+
+**Common flag combinations:**
+
+| Use Case | Flags |
+|----------|-------|
+| Maximum speed | `-O3 -march=native -flto -ffast-math` |
+| Balanced | `-O2 -march=native` (default) |
+| Debug | `-O0 -g -Wall` |
+| Size optimization | `-Os -march=native` |
+| Safe optimization | `-O2` (no -ffast-math) |
+
+### Profile-Guided Optimization (PGO)
+
+PGO uses runtime profiling to guide optimization:
+
+**Step 1: Compile with instrumentation**
+```bash
+shedskin --flags=pgo-generate myprogram.py
+make
+```
+
+Create `~/.shedskin/flags/pgo-generate`:
+```
+-O2
+-fprofile-generate
+```
+
+**Step 2: Run with representative input**
+```bash
+./myprogram < typical_input.txt
+# This generates myprogram.gcda profile data
+```
+
+**Step 3: Recompile with profile data**  
+```bash
+shedskin --flags=pgo-use myprogram.py
+make clean
+make
+```
+
+Create `~/.shedskin/flags/pgo-use`:
+```
+-O2
+-fprofile-use
+```
+
+**Expected speedup:** 5-30% depending on code characteristics
+
+## Understanding Generated C++ Code
+
+### Analyzing Generated Code
+
+Examine the generated C++ to identify optimization opportunities:
+
+```bash
+shedskin myprogram.py
+less myprogram.cpp
+```
+
+**What to look for:**
+
+1. **Unnecessary type conversions**
+```cpp
+// Inefficient
+str *s = __str(i);  // int to str conversion in loop
+
+// Better: hoist outside loop
+```
+
+2. **Virtual method calls**  
+```cpp
+obj->virtual_method();  // Polymorphic, slower
+```
+
+3. **Memory allocations**
+```cpp
+new list<int>();  // Heap allocation
+```
+
+4. **Repeated computations**
+```cpp
+for (int i=0; i<lst->__len__(); i++)  // __len__() called every iteration
+```
+
+### Hot Path Optimization
+
+Focus optimization on code executed most frequently:
+
+1. **Identify hot paths** with profiling (see below)
+2. **Rewrite hot functions** in Python for better C++ generation  
+3. **Consider manual C++** for critical sections
+
+## Manual Optimization Techniques
+
+### List Comprehensions vs Loops
+
+List comprehensions often generate more efficient code:
+
+```python
+# Good: Comprehension
+result = [x * 2 for x in items]
+
+# Slower: Explicit loop with append  
+result = []
+for x in items:
+    result.append(x * 2)
+```
+
+Generated C++ for comprehension is more optimized with pre-allocation.
+
+### Avoiding Dynamic Dispatch
+
+Static types enable direct calls:
+
+```python
+# Dynamic: virtual method call
+def process(obj):
+    return obj.compute()
+
+# Static: direct call
+def process(obj: MyClass):
+    return obj.compute()
+```
+
+Type annotations help Shed Skin generate more efficient code.
+
+### Local Variables
+
+Local variables are faster than globals or attributes:
+
+```python
+# Slower: repeated attribute access  
+def compute(self):
+    for i in range(1000):
+        result += self.multiplier * i
+
+# Faster: cache in local
+def compute(self):
+    mult = self.multiplier  # Cache locally
+    for i in range(1000):
+        result += mult * i
+```
+
+### Integer vs Float
+
+Integer arithmetic is faster than floating-point:
+
+```python
+# Slower: float division
+result = total / count
+
+# Faster: integer division when appropriate
+result = total // count
+```
+
+### String Building
+
+Use join() for efficient string concatenation:
+
+```python
+# Inefficient: repeated concatenation
+result = ""
+for item in items:
+    result += str(item) + ","
+
+# Efficient: join
+result = ",".join(str(item) for item in items)
+```
+
+### Container Pre-allocation
+
+Pre-allocate when final size is known:
+
+```python
+# Better: pre-allocate
+result = [0] * n
+for i in range(n):
+    result[i] = compute(i)
+
+# Slower: incremental growth  
+result = []
+for i in range(n):
+    result.append(compute(i))
+```
+
+## Memory Management Tuning
+
+### Garbage Collection Configuration
+
+Tune the Boehm GC for your workload:
+
+```cpp
+// In custom C++ wrapper or extension
+#include <gc.h>
+
+int main() {
+    // Set larger initial heap
+    GC_set_max_heap_size(500 * 1024 * 1024);  // 500 MB
+    
+    // Adjust GC aggressiveness
+    GC_set_free_space_divisor(2);  // Collect more aggressively
+    
+    __shedskin__::__init();
+    // ...
+}
+```
+
+**Common GC tuning:**
+
+| Scenario | Configuration |
+|----------|---------------|
+| Large heap | `GC_set_max_heap_size(large_value)` |
+| Real-time constraints | `GC_disable()` in critical sections |
+| Memory constrained | `GC_set_free_space_divisor(4)` (more aggressive) |
+| High throughput | `GC_set_free_space_divisor(1)` (less aggressive) |
+
+### Disabling GC
+
+For programs with bounded memory usage:
+
+```bash
+shedskin --nogc myprogram.py
+```
+
+**Caution:** Leaks are possible. Only use when:
+- Memory usage is bounded and known
+- Program runs for short duration  
+- You've verified no leaks with testing
+
+### Object Pooling
+
+Reuse objects instead of allocating:
+
+```python
+class ObjectPool:
+    def __init__(self):
+        self.pool = []
+    
+    def acquire(self):
+        if self.pool:
+            return self.pool.pop()
+        return Object()  # New allocation
+    
+    def release(self, obj):
+        obj.reset()
+        self.pool.append(obj)
+```
+
+## Profiling
+
+### CPU Profiling
+
+Use standard profiling tools on generated executable:
+
+**perf (Linux):**
+```bash
+shedskin myprogram.py
+make
+perf record -g ./myprogram
+perf report
+```
+
+**Instruments (macOS):**
+```bash
+instruments -t "Time Profiler" ./myprogram
+```
+
+**Valgrind callgrind:**  
+```bash
+valgrind --tool=callgrind ./myprogram
+kcachegrind callgrind.out.*
+```
+
+### Identifying Bottlenecks
+
+Look for:
+1. **Hot functions** - Functions consuming most CPU time
+2. **Allocation patterns** - Frequent memory allocations
+3. **Cache misses** - Poor memory access patterns
+4. **Virtual calls** - Polymorphic dispatch overhead
+
+### Python-Level Profiling  
+
+Profile before compilation to identify algorithmic issues:
+
+```python
+import cProfile
+import pstats
+
+cProfile.run('main()', 'profile.stats')
+stats = pstats.Stats('profile.stats')
+stats.sort_stats('cumulative')
+stats.print_stats(20)
+```
+
+## Benchmarking
+
+### Micro-benchmarks
+
+Measure specific operation performance:
+
+```python
+import time
+
+def benchmark(func, iterations=1000000):
+    start = time.time()
+    for _ in range(iterations):
+        func()
+    elapsed = time.time() - start
+    print(f"{elapsed:.3f}s ({iterations/elapsed:.0f} ops/sec)")
+
+benchmark(lambda: expensive_operation())
+```
+
+### Comparing Implementations
+
+```bash
+# Original implementation
+shedskin version1.py && make
+time ./version1
+
+# Optimized implementation  
+shedskin version2.py && make
+time ./version2
+```
+
+### Automated Benchmarking
+
+```python
+# benchmark.py
+import subprocess
+import statistics
+
+def run_benchmark(executable, iterations=10):
+    times = []
+    for _ in range(iterations):
+        result = subprocess.run(
+            [f'./{executable}'],
+            capture_output=True,
+            text=True
+        )
+        # Parse timing from output
+        time = float(result.stdout.strip())
+        times.append(time)
+    
+    print(f"Mean: {statistics.mean(times):.3f}s")
+    print(f"Stdev: {statistics.stdev(times):.3f}s")
+    print(f"Min: {min(times):.3f}s")
+    print(f"Max: {max(times):.3f}s")
+
+run_benchmark('myprogram')
+```
+
+## Advanced Tuning
+
+### Type Inference Limits
+
+Adjust type inference parameters in `shedskin/infer.py` for large codebases:
+
+```python
+# Increase CPA limit for more specialization
+CPA_LIMIT = 20  # Default: 10
+
+# Reduce for faster compilation
+CPA_LIMIT = 5
+
+# Adjust iteration limit  
+MAXITERS = 50  # Default: 30
+```
+
+**Trade-offs:**
+- Higher limits: More precise types, slower compilation, potentially faster runtime
+- Lower limits: Faster compilation, less precise types, potentially slower runtime
+
+### Compilation Time
+
+For faster iteration during development:
+
+```bash
+# Minimal optimization, fast compile
+shedskin --flags=debug myprogram.py
+make
+```
+
+Create `~/.shedskin/flags/debug`:
+```
+-O0
+-g
+```
+
+### Integer Size Selection
+
+Choose appropriate integer size:
+
+```bash
+# 32-bit integers (faster on 32-bit systems)
+shedskin -l myprogram.py
+
+# 64-bit integers (default, wider range)  
+shedskin myprogram.py
+
+# 128-bit integers (very large numbers)
+shedskin -x myprogram.py
+```
+
+## Optimization Checklist
+
+Before optimizing:
+- [ ] Profile to identify actual bottlenecks
+- [ ] Verify correctness with tests
+- [ ] Establish baseline performance metrics
+
+Code-level optimizations:  
+- [ ] Use list comprehensions where appropriate
+- [ ] Cache frequently accessed attributes in locals
+- [ ] Pre-allocate containers when size is known
+- [ ] Use join() for string building  
+- [ ] Prefer integer arithmetic when possible
+- [ ] Minimize dynamic dispatch with type hints
+
+Compilation optimizations:
+- [ ] Use appropriate -O level (start with -O2)  
+- [ ] Enable -march=native for CPU-specific optimizations
+- [ ] Consider PGO for critical applications
+- [ ] Profile generated C++ and adjust Python code accordingly
+
+Memory optimizations:
+- [ ] Tune GC parameters for workload
+- [ ] Consider --nogc for bounded memory programs  
+- [ ] Use object pooling for frequently allocated types
+- [ ] Monitor memory usage with valgrind
+
+## Expected Performance
+
+Typical speedups over CPython:
+- **Numeric code:** 2-100x faster
+- **String processing:** 2-50x faster  
+- **General algorithms:** 2-40x faster
+- **With optimization:** Additional 10-30% improvement
+
+Actual results depend heavily on code characteristics.
+
+## Further Reading
+
+- GCC optimization options: https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
+- Boehm GC tuning: https://www.hboehm.info/gc/
+- CPU profiling guide: https://perf.wiki.kernel.org/index.php/Tutorial
+- Generated code analysis: `shedskin/cpp.py` source

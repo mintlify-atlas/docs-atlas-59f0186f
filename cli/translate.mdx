@@ -1,0 +1,412 @@
+---
+title: translate Command
+description: Translate Python modules to C++ with traditional Makefile generation
+---
+
+The `translate` command converts Python source code to C++ and generates a Makefile for compilation. This is the traditional Shed Skin workflow.
+
+## Syntax
+
+```bash
+shedskin translate [options] <module.py>
+```
+
+<Note>
+  The `translate` command is the default. Running `shedskin myprogram.py` is equivalent to `shedskin translate myprogram.py`.
+</Note>
+
+## Overview
+
+The translate command performs:
+
+1. **Parsing** - Reads and validates your Python source code
+2. **Type Inference** - Analyzes types using iterative flow analysis
+3. **Code Generation** - Generates optimized C++ source files
+4. **Makefile Generation** - Creates a Makefile for compilation (optional)
+
+## Basic Examples
+
+### Translate to C++
+
+```bash
+shedskin translate example.py
+```
+
+Output:
+```
+*** SHED SKIN Python-to-C++ Compiler 0.9.12 ***
+Copyright 2005-2026 Mark Dufour and contributors; License GNU GPL version 3
+
+>> reading Python
+>> type inference
+>> code generation
+
+[prebuild time: 0.38 seconds]
+```
+
+Generates:
+- `example.cpp` - C++ implementation
+- `example.hpp` - C++ header file
+- `Makefile` - Build configuration
+
+### Translate and compile immediately
+
+```bash
+shedskin translate --compile example.py
+```
+
+This translates to C++, then runs `make` to build the executable.
+
+### Translate, compile, and run
+
+```bash
+shedskin translate --run example.py
+```
+
+Complete workflow in one command: translate → compile → execute.
+
+### Generate extension module
+
+```bash
+shedskin translate --extmod mymodule.py
+make
+```
+
+Creates a Python extension module that can be imported.
+
+## Generated C++ Structure
+
+### Executable Program
+
+For `program.py`, Shed Skin generates:
+
+```
+program.py              # Your Python source
+program.cpp             # Generated C++ implementation
+program.hpp             # Generated C++ header
+Makefile                # Build configuration
+```
+
+The C++ code includes:
+- Type-specialized functions
+- Optimized data structures
+- Integration with Shed Skin runtime library
+
+### Extension Module
+
+For extension modules (`--extmod`):
+
+```
+mymodule.py             # Your Python source  
+mymodule.cpp            # C++ implementation with Python bindings
+mymodule.hpp            # C++ header
+Makefile                # Builds shared library (.so/.dylib/.pyd)
+```
+
+## Command Options
+
+### Basic Options
+
+<ParamField path="name" type="string" required>
+  Python file or module to translate (e.g., `program.py`)
+</ParamField>
+
+<ParamField path="-c, --compile" type="boolean">
+  Directly compile the translated code using the generated Makefile
+</ParamField>
+
+<ParamField path="-r, --run" type="boolean">
+  Translate, compile, and run the executable in one step
+</ParamField>
+
+<ParamField path="-o, --outputdir" type="string">
+  Specify output directory for generated C++ files (default: current directory)
+</ParamField>
+
+<ParamField path="-e, --extmod" type="boolean">
+  Generate a Python extension module instead of a standalone executable
+</ParamField>
+
+<ParamField path="-x, --executable" type="boolean">
+  Explicitly generate a standalone executable (this is the default)
+</ParamField>
+
+<ParamField path="-s, --silent" type="boolean">
+  Silent mode - only show warnings, suppress informational messages
+</ParamField>
+
+<ParamField path="-d, --debug" type="integer">
+  Set debug logging level:
+  - `1` - Basic debug information
+  - `2` - Detailed debug output
+  - `3` - Enables iterative flow analysis (IFA) logging
+</ParamField>
+
+### Makefile Options
+
+<ParamField path="--nomakefile" type="boolean">
+  Disable Makefile generation (only generate C++ files)
+</ParamField>
+
+<ParamField path="-m, --makefile" type="string">
+  Specify alternate Makefile name (default: `Makefile`)
+</ParamField>
+
+<ParamField path="-F, --flags" type="string">
+  Provide path to alternate Makefile flags configuration file
+</ParamField>
+
+<ParamField path="-S, --static-libs" type="boolean">
+  Use static linking if possible (creates standalone binaries)
+</ParamField>
+
+<ParamField path="-D, --dry-run" type="boolean">
+  Only print the compilation command without executing it
+</ParamField>
+
+<ParamField path="--nocleanup" type="boolean">
+  Disable cleanup of generated intermediate files
+</ParamField>
+
+### Type Configuration
+
+<ParamField path="--int32" type="boolean">
+  Use 32-bit integers throughout the generated code
+</ParamField>
+
+<ParamField path="--int64" type="boolean">
+  Use 64-bit integers for better range at slight performance cost
+</ParamField>
+
+<ParamField path="--int128" type="boolean">
+  Use 128-bit integers (Linux/macOS only, not supported on Windows)
+</ParamField>
+
+<ParamField path="--float32" type="boolean">
+  Use 32-bit floating point (single precision) for better performance
+</ParamField>
+
+<ParamField path="--float64" type="boolean">
+  Use 64-bit floating point (double precision) for better accuracy
+</ParamField>
+
+### Performance & Safety Options
+
+<ParamField path="-b, --nobounds" type="boolean">
+  Disable bounds checking on array/list access. Significant performance boost but removes safety checks.
+</ParamField>
+
+<ParamField path="-w, --nowrap" type="boolean">
+  Disable wrap-around checking for negative indices (e.g., `list[-1]`)
+</ParamField>
+
+<ParamField path="--noassert" type="boolean">
+  Disable Python assert statements in generated code
+</ParamField>
+
+<ParamField path="--nogc" type="boolean">
+  Disable garbage collection. Use only if you're certain about memory management.
+</ParamField>
+
+<ParamField path="-t, --traceback" type="boolean">
+  Print full traceback for uncaught exceptions in compiled code
+</ParamField>
+
+### Linking Options
+
+<ParamField path="-I, --include-dirs" type="string[]">
+  Add include directories for C++ compilation. Can be specified multiple times.
+  
+  Example: `-I /usr/local/include -I ./headers`
+</ParamField>
+
+<ParamField path="-L, --link-dirs" type="string[]">
+  Add library directories for linking. Can be specified multiple times.
+  
+  Example: `-L /usr/local/lib -L ./lib`
+</ParamField>
+
+<ParamField path="-l, --link-libs" type="string[]">
+  Add libraries to link against. Can be specified multiple times.
+  
+  Example: `-l pthread -l m`
+</ParamField>
+
+<ParamField path="-X, --extra-lib" type="string">
+  Add an extra directory for Shed Skin builtins library extensions
+</ParamField>
+
+### Other Options
+
+<ParamField path="--local-deps" type="boolean">
+  Use dependencies from bundled ext/ sources instead of system libraries
+</ParamField>
+
+<ParamField path="--collect-stats" type="boolean">
+  Collect and report detailed compilation statistics
+</ParamField>
+
+## Advanced Examples
+
+### Generate C++ only (no Makefile)
+
+```bash
+shedskin translate --nomakefile myprogram.py
+```
+
+Useful when integrating with custom build systems.
+
+### Custom Makefile name
+
+```bash
+shedskin translate --makefile Makefile.custom myprogram.py
+```
+
+### Performance-optimized translation
+
+```bash
+shedskin translate --nobounds --nowrap --noassert --float32 myprogram.py
+make
+```
+
+Maximum performance by disabling safety checks and using 32-bit floats.
+
+### Translation with custom output directory
+
+```bash
+shedskin translate --outputdir ./generated myprogram.py
+cd generated
+make
+```
+
+### Extension module with type configuration
+
+```bash
+shedskin translate --extmod --int64 --float64 mymodule.py
+make
+```
+
+### Debug build with tracebacks
+
+```bash
+shedskin translate --debug 3 --traceback myprogram.py
+make
+```
+
+### Static linking for portable binaries
+
+```bash
+shedskin translate --static-libs myprogram.py
+make
+```
+
+### Dry run to see compilation command
+
+```bash
+shedskin translate --compile --dry-run myprogram.py
+```
+
+Shows what `make` would execute without actually compiling.
+
+## Translate vs Build
+
+Use **translate** when:
+- You want a simple Makefile workflow
+- You need direct control over the compilation process
+- You're integrating with existing Make-based projects
+- You want to customize the generated Makefile
+
+Use **build** when:
+- You want modern CMake-based workflow
+- You need better dependency management
+- You want IDE integration (most IDEs support CMake)
+- You need multi-configuration builds (Debug/Release)
+
+See [build command](/cli/build) for details on the CMake workflow.
+
+## Compiling the Generated Code
+
+### Using the generated Makefile
+
+```bash
+shedskin translate myprogram.py
+make
+./myprogram
+```
+
+### Using the shorthand
+
+```bash
+shedskin translate --compile myprogram.py
+./myprogram
+```
+
+### Complete workflow
+
+```bash
+shedskin translate --run myprogram.py
+```
+
+## Output Files
+
+### C++ Source Files
+
+**`program.cpp`** - Main implementation:
+```cpp
+// Type-specialized function implementations
+// Optimized data structure operations
+// Integration with Shed Skin runtime
+```
+
+**`program.hpp`** - Header declarations:
+```cpp
+// Class and function declarations
+// Template specializations
+// Namespace definitions
+```
+
+### Makefile
+
+The generated Makefile includes:
+- Compiler flags for optimization
+- Include paths for Shed Skin runtime
+- Linking configuration
+- Platform-specific settings
+
+You can customize the Makefile after generation or use `--flags` to provide alternate flags.
+
+## Extension Module Usage
+
+After compiling an extension module:
+
+```bash
+shedskin translate --extmod --compile mymodule.py
+```
+
+Use it from Python:
+
+```python
+import mymodule
+
+# Call functions from the compiled module
+result = mymodule.fast_function(data)
+```
+
+The compiled C++ code provides the same API as your Python module but runs at native speed.
+
+## When to Use Translate
+
+The translate command is ideal for:
+- Learning how Shed Skin generates C++ code
+- Inspecting the generated code for optimization opportunities
+- Integrating with existing Make-based build systems
+- Quick prototyping and experimentation
+- Manual customization of build process
+
+For production builds and larger projects, consider using the [build command](/cli/build) with CMake.
+
+## See Also
+
+- [build command](/cli/build) - Modern CMake-based compilation
+- [Command-line options](/cli/options) - Complete option reference
+- [CLI overview](/cli/overview) - All available commands

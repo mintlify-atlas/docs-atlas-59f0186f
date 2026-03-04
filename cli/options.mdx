@@ -1,0 +1,669 @@
+---
+title: Command-Line Options
+description: Complete reference for all Shed Skin compiler command-line flags and options
+---
+
+Comprehensive reference for all command-line options available in Shed Skin.
+
+## Global Options
+
+These options are available for most commands (`build`, `translate`, `run`).
+
+### Output Configuration
+
+<ParamField path="-o, --outputdir DIR" type="string">
+  Specify output directory for generated C++ files.
+  
+  **Default:** Current directory
+  
+  **Example:**
+  ```bash
+  shedskin build --outputdir ./generated myprogram.py
+  ```
+  
+  Generated files (`myprogram.cpp`, `myprogram.hpp`) will be placed in `./generated/`.
+</ParamField>
+
+<ParamField path="-s, --silent" type="boolean">
+  Silent mode - suppress informational messages and only show warnings.
+  
+  **Default:** `false` (show all output)
+  
+  **Example:**
+  ```bash
+  shedskin build --silent myprogram.py
+  ```
+  
+  Useful for scripting and automated builds.
+</ParamField>
+
+<ParamField path="-d, --debug LEVEL" type="integer">
+  Set debug logging level (1-3).
+  
+  **Levels:**
+  - `1` - Basic debug information
+  - `2` - Detailed debug output  
+  - `3` - Enables iterative flow analysis (IFA) debug logging
+  
+  **Default:** No debug output
+  
+  **Example:**
+  ```bash
+  shedskin build --debug 2 myprogram.py
+  ```
+</ParamField>
+
+### Compilation Mode
+
+<ParamField path="-e, --extmod" type="boolean">
+  Generate a Python extension module instead of a standalone executable.
+  
+  **Default:** `false` (generate executable)
+  
+  **Example:**
+  ```bash
+  shedskin build --extmod mymodule.py
+  ```
+  
+  Creates a `.so` (Linux), `.dylib` (macOS), or `.pyd` (Windows) file that can be imported from Python:
+  ```python
+  import mymodule
+  ```
+</ParamField>
+
+<ParamField path="-x, --executable" type="boolean">
+  Explicitly generate a standalone executable (this is the default behavior).
+  
+  **Example:**
+  ```bash
+  shedskin build --executable myprogram.py
+  ```
+</ParamField>
+
+## Integer Type Options
+
+Control the integer type used throughout the generated C++ code.
+
+<ParamField path="--int32" type="boolean">
+  Use 32-bit integers (`int32_t`).
+  
+  **Range:** -2,147,483,648 to 2,147,483,647
+  
+  **Effect:** Smaller memory footprint, potential performance improvement on some architectures.
+  
+  **Example:**
+  ```bash
+  shedskin build --int32 myprogram.py
+  ```
+</ParamField>
+
+<ParamField path="--int64" type="boolean">
+  Use 64-bit integers (`int64_t`).
+  
+  **Range:** -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807
+  
+  **Effect:** Larger range, default on most 64-bit systems.
+  
+  **Example:**
+  ```bash
+  shedskin build --int64 myprogram.py
+  ```
+</ParamField>
+
+<ParamField path="--int128" type="boolean">
+  Use 128-bit integers (`__int128`).
+  
+  **Range:** Extremely large integers (±10³⁸)
+  
+  **Platform:** Linux and macOS only (not supported on Windows)
+  
+  **Effect:** Maximum integer range at performance cost.
+  
+  **Example:**
+  ```bash
+  shedskin build --int128 myprogram.py
+  ```
+  
+  <Warning>
+    Not supported on Windows. Will exit with error if attempted.
+  </Warning>
+</ParamField>
+
+## Floating Point Type Options
+
+Control the floating point precision used in generated code.
+
+<ParamField path="--float32" type="boolean">
+  Use 32-bit floating point numbers (`float`, single precision).
+  
+  **Precision:** ~7 decimal digits
+  
+  **Effect:** Better performance, lower memory usage, reduced precision.
+  
+  **Use case:** Graphics, game development, non-critical calculations.
+  
+  **Example:**
+  ```bash
+  shedskin build --float32 myprogram.py
+  ```
+</ParamField>
+
+<ParamField path="--float64" type="boolean">
+  Use 64-bit floating point numbers (`double`, double precision).
+  
+  **Precision:** ~15 decimal digits
+  
+  **Effect:** Higher accuracy, standard for scientific computing.
+  
+  **Use case:** Scientific computing, financial calculations, precise math.
+  
+  **Example:**
+  ```bash
+  shedskin build --float64 myprogram.py
+  ```
+</ParamField>
+
+## Performance & Safety Options
+
+These flags disable safety checks for improved performance.
+
+<ParamField path="-b, --nobounds" type="boolean">
+  Disable bounds checking on array and list access.
+  
+  **Default:** Bounds checking enabled
+  
+  **Performance gain:** 10-30% in array-heavy code
+  
+  **Risk:** Buffer overflows, undefined behavior on out-of-bounds access
+  
+  **Example:**
+  ```bash
+  shedskin build --nobounds myprogram.py
+  ```
+  
+  ```python
+  # With bounds checking: raises IndexError
+  # With --nobounds: undefined behavior
+  arr = [1, 2, 3]
+  x = arr[10]  # Out of bounds
+  ```
+  
+  <Warning>
+    Only use when you're certain all array accesses are within bounds.
+  </Warning>
+</ParamField>
+
+<ParamField path="-w, --nowrap" type="boolean">
+  Disable wrap-around checking for negative indices.
+  
+  **Default:** Wrap-around checking enabled
+  
+  **Performance gain:** 5-15% in code using negative indexing
+  
+  **Risk:** Incorrect behavior with negative indices
+  
+  **Example:**
+  ```bash
+  shedskin build --nowrap myprogram.py
+  ```
+  
+  ```python
+  # With wrap-around: arr[-1] returns last element
+  # With --nowrap: undefined behavior
+  arr = [1, 2, 3]
+  x = arr[-1]
+  ```
+  
+  <Warning>
+    Don't use if your code relies on negative indexing (e.g., `list[-1]`).
+  </Warning>
+</ParamField>
+
+<ParamField path="--noassert" type="boolean">
+  Disable assert statements in generated code.
+  
+  **Default:** Assertions enabled
+  
+  **Performance gain:** Minimal, mostly code size reduction
+  
+  **Risk:** Loss of runtime validation
+  
+  **Example:**
+  ```bash
+  shedskin build --noassert myprogram.py
+  ```
+  
+  ```python
+  # This assertion won't be checked with --noassert
+  assert x > 0, "x must be positive"
+  ```
+  
+  Useful for production builds where assertions are expensive.
+</ParamField>
+
+<ParamField path="--nogc" type="boolean">
+  Disable garbage collection.
+  
+  **Default:** Garbage collection enabled (Boehm GC)
+  
+  **Effect:** All allocations are permanent (memory leak risk)
+  
+  **Use case:** Short-lived programs, embedded systems with manual memory management
+  
+  **Example:**
+  ```bash
+  shedskin build --nogc myprogram.py
+  ```
+  
+  <Warning>
+    Use only for programs with predictable memory usage that run briefly.
+  </Warning>
+</ParamField>
+
+<ParamField path="-t, --traceback" type="boolean">
+  Print full traceback for uncaught exceptions.
+  
+  **Default:** Basic error messages only
+  
+  **Effect:** Shows stack trace when exceptions occur in compiled code
+  
+  **Example:**
+  ```bash
+  shedskin build --traceback myprogram.py
+  ```
+  
+  Useful for debugging runtime errors in compiled programs.
+</ParamField>
+
+## Linking & Include Options
+
+<ParamField path="-I, --include-dirs DIR" type="string[]">
+  Add include directories for C++ compilation.
+  
+  **Can be specified multiple times**
+  
+  **Example:**
+  ```bash
+  shedskin build \
+    -I /usr/local/include \
+    -I ./external/headers \
+    myprogram.py
+  ```
+  
+  Adds `-I<DIR>` to compiler flags.
+</ParamField>
+
+<ParamField path="-L, --link-dirs DIR" type="string[]">
+  Add library directories for linking.
+  
+  **Can be specified multiple times**
+  
+  **Example:**
+  ```bash
+  shedskin build \
+    -L /usr/local/lib \
+    -L ./external/lib \
+    myprogram.py
+  ```
+  
+  Adds `-L<DIR>` to linker flags.
+</ParamField>
+
+<ParamField path="-l, --link-libs LIB" type="string[]">
+  Add libraries to link against.
+  
+  **Can be specified multiple times**
+  
+  **Example:**
+  ```bash
+  shedskin build \
+    -l pthread \
+    -l m \
+    -l sqlite3 \
+    myprogram.py
+  ```
+  
+  Adds `-l<LIB>` to linker flags.
+</ParamField>
+
+<ParamField path="-X, --extra-lib DIR" type="string">
+  Add an extra directory for Shed Skin builtins library extensions.
+  
+  **Example:**
+  ```bash
+  shedskin build --extra-lib ./custom-libs myprogram.py
+  ```
+  
+  Useful for custom implementations of Shed Skin built-in libraries.
+</ParamField>
+
+## CMake Options
+
+These options are specific to the `build` and `run` commands.
+
+<ParamField path="--generator G" type="string">
+  Specify CMake build system generator.
+  
+  **Common values:**
+  - `"Unix Makefiles"` (default on Linux/macOS)
+  - `"Ninja"` (faster builds)
+  - `"Visual Studio 17 2022"` (Windows)
+  - `"Xcode"` (macOS)
+  
+  **Example:**
+  ```bash
+  shedskin build --generator Ninja myprogram.py
+  ```
+</ParamField>
+
+<ParamField path="--jobs N" type="integer">
+  Build in parallel using N jobs.
+  
+  **Default:** Single-threaded build
+  
+  **Example:**
+  ```bash
+  # Use 8 parallel jobs
+  shedskin build --jobs 8 myprogram.py
+  
+  # Use all available CPU cores
+  shedskin build --jobs $(nproc) myprogram.py
+  ```
+  
+  Significantly speeds up compilation of large projects.
+</ParamField>
+
+<ParamField path="--build-type T" type="string" default="Debug">
+  Set CMake build type.
+  
+  **Values:**
+  - `Debug` - No optimization, debug symbols, assertions enabled
+  - `Release` - Full optimization (-O3), no debug symbols
+  - `RelWithDebInfo` - Optimization with debug symbols
+  - `MinSizeRel` - Optimize for size (-Os)
+  
+  **Example:**
+  ```bash
+  shedskin build --build-type Release myprogram.py
+  ```
+  
+  <Note>
+    On Windows, defaults to `Release` due to debug symbol availability issues.
+  </Note>
+</ParamField>
+
+<ParamField path="--reset" type="boolean">
+  Reset CMake build directory before building.
+  
+  **Effect:** Removes `build/` directory and regenerates from scratch
+  
+  **Example:**
+  ```bash
+  shedskin build --reset myprogram.py
+  ```
+  
+  Useful when CMake cache is corrupted or configuration changed significantly.
+</ParamField>
+
+<ParamField path="--test" type="boolean">
+  Run ctest after building.
+  
+  **Example:**
+  ```bash
+  shedskin build --test myprogram.py
+  ```
+  
+  Automatically runs test suite after successful build.
+</ParamField>
+
+<ParamField path="--ccache" type="boolean">
+  Enable ccache for faster rebuilds.
+  
+  **Requires:** ccache installed on system
+  
+  **Effect:** Caches compilation results for faster subsequent builds
+  
+  **Example:**
+  ```bash
+  shedskin build --ccache myprogram.py
+  ```
+  
+  Can reduce rebuild time by 5-10x for unchanged files.
+</ParamField>
+
+<ParamField path="--target TARGET" type="string[]">
+  Build only specified CMake targets.
+  
+  **Can specify multiple targets**
+  
+  **Example:**
+  ```bash
+  shedskin build --target myprogram --target tests myprogram.py
+  ```
+</ParamField>
+
+<ParamField path="--nowarnings" type="boolean">
+  Disable `-Wall` compilation warnings.
+  
+  **Default:** Warnings enabled
+  
+  **Example:**
+  ```bash
+  shedskin build --nowarnings myprogram.py
+  ```
+  
+  Useful when working with generated code that produces harmless warnings.
+</ParamField>
+
+## Dependency Management Options
+
+Control how Shed Skin manages external dependencies.
+
+<ParamField path="--local-deps" type="boolean" default="true">
+  Build dependencies from bundled ext/ sources.
+  
+  **Default:** Automatically enabled if no other option specified
+  
+  **Example:**
+  ```bash
+  shedskin build --local-deps myprogram.py
+  ```
+  
+  Uses dependencies bundled with Shed Skin installation.
+</ParamField>
+
+<ParamField path="--spm" type="boolean">
+  Install CMake dependencies using SPM package manager.
+  
+  **Example:**
+  ```bash
+  shedskin build --spm myprogram.py
+  ```
+  
+  Requires SPM to be installed and configured.
+</ParamField>
+
+<ParamField path="--fetchcontent" type="boolean">
+  Install CMake dependencies using FetchContent.
+  
+  **Effect:** Downloads dependencies at configure time
+  
+  **Example:**
+  ```bash
+  shedskin build --fetchcontent myprogram.py
+  ```
+  
+  Useful for reproducible builds without pre-installed dependencies.
+</ParamField>
+
+## Translate-Specific Options
+
+These options only apply to the `translate` command.
+
+<ParamField path="-c, --compile" type="boolean">
+  Directly compile translated code using generated Makefile.
+  
+  **Example:**
+  ```bash
+  shedskin translate --compile myprogram.py
+  ```
+  
+  Equivalent to:
+  ```bash
+  shedskin translate myprogram.py
+  make
+  ```
+</ParamField>
+
+<ParamField path="-r, --run" type="boolean">
+  Translate, compile, and run the executable.
+  
+  **Example:**
+  ```bash
+  shedskin translate --run myprogram.py
+  ```
+  
+  Complete workflow in one command.
+</ParamField>
+
+<ParamField path="--nomakefile" type="boolean">
+  Disable Makefile generation (only generate C++ files).
+  
+  **Example:**
+  ```bash
+  shedskin translate --nomakefile myprogram.py
+  ```
+  
+  Useful when integrating with custom build systems.
+</ParamField>
+
+<ParamField path="-m, --makefile NAME" type="string">
+  Specify alternate Makefile name.
+  
+  **Default:** `Makefile`
+  
+  **Example:**
+  ```bash
+  shedskin translate --makefile Makefile.custom myprogram.py
+  ```
+</ParamField>
+
+<ParamField path="-F, --flags FILE" type="string">
+  Provide path to alternate Makefile flags file.
+  
+  **Example:**
+  ```bash
+  shedskin translate --flags ./build-flags.txt myprogram.py
+  ```
+  
+  The flags file must exist or an error is raised.
+</ParamField>
+
+<ParamField path="-S, --static-libs" type="boolean">
+  Use static linking if possible.
+  
+  **Effect:** Creates standalone binaries with no external dependencies
+  
+  **Example:**
+  ```bash
+  shedskin translate --static-libs myprogram.py
+  ```
+  
+  Useful for creating portable executables.
+</ParamField>
+
+<ParamField path="-D, --dry-run" type="boolean">
+  Only print compilation command without executing.
+  
+  **Example:**
+  ```bash
+  shedskin translate --compile --dry-run myprogram.py
+  ```
+  
+  Shows what would be executed without actually compiling.
+</ParamField>
+
+<ParamField path="--nocleanup" type="boolean">
+  Disable cleanup of generated intermediate files.
+  
+  **Example:**
+  ```bash
+  shedskin translate --nocleanup myprogram.py
+  ```
+  
+  Keeps all temporary files for inspection.
+</ParamField>
+
+## Statistics & Debugging
+
+<ParamField path="--collect-stats" type="boolean">
+  Collect and report detailed compilation statistics.
+  
+  **Example:**
+  ```bash
+  shedskin build --collect-stats myprogram.py
+  ```
+  
+  Shows:
+  - Prebuild time (parsing and analysis)
+  - Build time (C++ compilation)
+  - Run time (if applicable)
+  - Module statistics
+</ParamField>
+
+## Option Combinations
+
+### Maximum Performance
+
+```bash
+shedskin build \
+  --build-type Release \
+  --nobounds \
+  --nowrap \
+  --noassert \
+  --float32 \
+  --ccache \
+  --jobs $(nproc) \
+  myprogram.py
+```
+
+### Maximum Safety (Debug)
+
+```bash
+shedskin build \
+  --build-type Debug \
+  --debug 3 \
+  --traceback \
+  --float64 \
+  --int64 \
+  myprogram.py
+```
+
+### Extension Module for Production
+
+```bash
+shedskin build \
+  --extmod \
+  --build-type Release \
+  --nobounds \
+  --nowrap \
+  --jobs $(nproc) \
+  mymodule.py
+```
+
+### Portable Static Binary
+
+```bash
+shedskin translate \
+  --static-libs \
+  --compile \
+  --nobounds \
+  --float32 \
+  myprogram.py
+```
+
+## See Also
+
+- [CLI Overview](/cli/overview) - Command reference
+- [build command](/cli/build) - CMake workflow
+- [translate command](/cli/translate) - Makefile workflow

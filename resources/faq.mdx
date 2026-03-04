@@ -1,0 +1,369 @@
+---
+title: "Frequently Asked Questions"
+description: "Common questions about Shed Skin capabilities, limitations, and use cases"
+---
+
+## General Questions
+
+<Accordion title="What is Shed Skin?">
+Shed Skin is a transpiler that converts implicitly statically typed Python programs to C++. The generated C++ code can be compiled into standalone executables or Python extension modules, offering significant performance improvements (typically 1-100x speedup, average 20x) over CPython.
+
+It uses type inference techniques to determine the implicit types in your Python code and generates the explicit type declarations needed for C++.
+</Accordion>
+
+<Accordion title="Is Shed Skin production-ready?">
+Shed Skin is experimental software still in active development (currently version 0.9.12). While it successfully compiles over 80 non-trivial programs, you may encounter bugs or limitations. It's best suited for:
+
+- Performance-critical code sections (hundreds to thousands of lines)
+- Computational algorithms independent of external libraries
+- Projects where you can refactor code to fit Shed Skin's constraints
+
+Use with caution in production and thoroughly test compiled code.
+</Accordion>
+
+<Accordion title="What license is Shed Skin under?">
+Shed Skin is licensed under the GNU GPL version 3. See the LICENSE file in the repository for details.
+</Accordion>
+
+## Capabilities
+
+<Accordion title="What kind of speedup can I expect?">
+For compatible code, typical speedups are:
+
+- **Range**: 1-100x faster than CPython 3.14
+- **Average**: 20x speedup
+- **Median**: 12x speedup
+
+Performance varies significantly based on:
+- Code characteristics (computation vs. memory allocation heavy)
+- Compilation flags (`--nobounds`, `--nowrap`, optimization levels)
+- Algorithm complexity and data structures used
+
+Shed Skin generally outperforms PyPy for computation-intensive code and is comparable to Numba in many cases.
+</Accordion>
+
+<Accordion title="Can Shed Skin compile any Python code?">
+No. Shed Skin only supports a restricted subset of Python with these key constraints:
+
+1. **Static typing**: Variables must have a single, consistent type
+2. **Limited standard library**: Only about 30 modules supported
+3. **No dynamic features**: No `eval`, `getattr`, `isinstance`, etc.
+4. **Size limits**: Best for programs under several thousand lines
+5. **Feature restrictions**: No nested functions, no `*args`/`**kwargs`, no multiple inheritance
+
+See [Python Subset Restrictions](/concepts/python-subset) for complete details.
+</Accordion>
+
+<Accordion title="Can I use Shed Skin with existing Python projects?">
+Yes, but with the extension module approach. You can:
+
+1. Identify performance bottlenecks in your code
+2. Extract them into separate modules
+3. Refactor these modules to be Shed Skin compatible
+4. Compile them as extension modules
+5. Import and use them in your main Python program
+
+This allows you to accelerate critical sections while keeping your main codebase unchanged and able to use any Python libraries.
+</Accordion>
+
+<Accordion title="Does Shed Skin support Python 3?">
+Yes, Shed Skin supports Python 3 syntax. However, it supports a restricted subset of Python 3 features. Not all Python 3.x features are available (e.g., match/case statements from 3.10+ are not supported).
+</Accordion>
+
+## Comparisons
+
+<Accordion title="How does Shed Skin compare to PyPy?">
+**PyPy** is a JIT compiler that runs Python dynamically:
+- ✅ Supports full Python language and libraries
+- ✅ No code changes required
+- ❌ Slower startup time
+- ❌ Typically slower than Shed Skin for computational code
+- ❌ Requires using PyPy interpreter
+
+**Shed Skin** is an ahead-of-time compiler:
+- ✅ Better performance for compatible code
+- ✅ Generates native binaries or CPython extensions
+- ✅ Works with standard CPython
+- ❌ Requires code to fit restricted subset
+- ❌ Limited library support
+- ❌ May require significant refactoring
+
+Use PyPy for full compatibility, Shed Skin for maximum performance on compatible code.
+</Accordion>
+
+<Accordion title="How does Shed Skin compare to Cython?">
+**Cython** compiles Python-like code with optional type annotations:
+- ✅ Supports full Python language
+- ✅ Gradual optimization (add types as needed)
+- ✅ Excellent library support including NumPy
+- ❌ Requires manual type annotations for best performance
+- ❌ More verbose code
+
+**Shed Skin** uses automatic type inference:
+- ✅ No type annotations needed (automatic inference)
+- ✅ Often better performance than non-annotated Cython
+- ✅ Cleaner code (pure Python)
+- ❌ More restrictive subset
+- ❌ Limited library support
+
+Use Cython for flexibility and library support, Shed Skin when you want automatic optimization without annotations.
+</Accordion>
+
+<Accordion title="How does Shed Skin compare to Numba?">
+**Numba** JIT-compiles numerical Python code:
+- ✅ Excellent for NumPy-style array operations
+- ✅ Minimal code changes (decorator-based)
+- ✅ Supports GPU acceleration
+- ❌ Limited to numerical/array code
+- ❌ Slower for non-numerical code
+- ❌ Requires Numba runtime
+
+**Shed Skin** compiles general Python code:
+- ✅ Good for general algorithms and data structures
+- ✅ Standalone binaries (no runtime)
+- ✅ Comparable or better performance for non-array code
+- ❌ No NumPy/GPU support
+- ❌ Requires full compilation step
+
+Use Numba for array-heavy numerical code, Shed Skin for general algorithmic code.
+</Accordion>
+
+<Accordion title="How does Shed Skin compare to Nuitka?">
+**Nuitka** compiles full Python to C:
+- ✅ Supports complete Python language
+- ✅ All standard library modules
+- ✅ Compatible with all Python packages
+- ❌ Moderate speedups (typically 2-4x)
+
+**Shed Skin** compiles restricted Python to C++:
+- ✅ Significant speedups (typically 10-20x+)
+- ❌ Restricted Python subset
+- ❌ Limited library support
+
+Use Nuitka for compatibility, Shed Skin for maximum performance on compatible code.
+</Accordion>
+
+## Use Cases
+
+<Accordion title="When should I use Shed Skin?">
+Shed Skin is ideal when:
+
+- ✅ You have 100-5000 lines of computation-heavy code
+- ✅ Performance is critical (need 10-100x speedup)
+- ✅ Code can be isolated from external dependencies
+- ✅ You're willing to refactor for compatibility
+- ✅ Your code uses basic Python features and data structures
+- ✅ You want to stay with pure Python syntax (no annotations)
+
+Examples: algorithms, simulations, data processing, games, numerical computations.
+</Accordion>
+
+<Accordion title="When should I NOT use Shed Skin?">
+Avoid Shed Skin when:
+
+- ❌ Code heavily uses unsupported libraries (pandas, requests, etc.)
+- ❌ Program is very large (>5000 lines)
+- ❌ You need dynamic Python features (eval, reflection, etc.)
+- ❌ Code uses many unsupported Python features
+- ❌ Performance is already acceptable
+- ❌ You can't refactor existing code
+
+In these cases, consider PyPy, Cython, Numba, or profile-guided optimization instead.
+</Accordion>
+
+<Accordion title="Can I use Shed Skin for web applications?">
+Not directly. Web frameworks (Django, Flask, FastAPI) are not supported. However, you could:
+
+1. Compile computational components as extension modules
+2. Import them into your web application
+3. Use them for performance-critical endpoints
+
+Example: image processing, data analysis, or complex calculations in web API endpoints.
+</Accordion>
+
+<Accordion title="Can I use Shed Skin for data science?">
+Partially. You cannot compile code that uses pandas, scikit-learn, or similar libraries. However, you can:
+
+1. Use Shed Skin for custom algorithms
+2. Pass data between NumPy/pandas and Shed Skin using `.tolist()` conversion
+3. Compile performance bottlenecks as extension modules
+
+Note: Conversion overhead can be significant, so only worthwhile if substantial time is spent in the compiled code.
+</Accordion>
+
+## Technical Questions
+
+<Accordion title="How does type inference work?">
+Shed Skin analyzes your code to determine variable types automatically:
+
+1. **Constraint generation**: Analyzes operations to determine type constraints
+2. **Iterative analysis**: Propagates type information through the program
+3. **Type resolution**: Determines concrete types that satisfy all constraints
+
+This is why all variables must have a consistent type - the inference system needs to resolve to a single static type for each variable.
+
+See [Type Inference](/advanced/type-inference) for technical details.
+</Accordion>
+
+<Accordion title="What C++ compiler is required?">
+Shed Skin generates C++ code that requires:
+
+- **Linux/macOS**: g++ (GCC) or clang++
+- **Windows**: Microsoft Visual C++ (via Visual Studio Build Tools)
+
+C++11 or later is required. Newer compilers generally produce faster code.
+</Accordion>
+
+<Accordion title="Why does Shed Skin use the Boehm GC?">
+The Boehm garbage collector provides:
+
+- Automatic memory management (like Python)
+- Conservative garbage collection
+- Thread-safe operation
+- Good performance for C++ programs
+
+This allows compiled code to allocate memory freely without manual management, maintaining Python's memory semantics.
+</Accordion>
+
+<Accordion title="Can I disable garbage collection?">
+Yes, using the `--nogc` flag:
+
+```bash
+shedskin build --nogc myprogram
+```
+
+**Pros**: Slightly better performance, useful for memory profiling
+
+**Cons**: Memory leaks, only use for short-running programs or when you manually manage memory
+
+Only recommended for benchmarking or specific use cases.
+</Accordion>
+
+<Accordion title="How are integers and floats handled?">
+By default:
+- **Integers**: 32-bit signed (`int32`) on most platforms
+- **Floats**: 64-bit double precision (`float64`)
+
+You can change this:
+
+```bash
+shedskin build --int64 myprogram     # 64-bit integers
+shedskin build --int128 myprogram    # 128-bit integers  
+shedskin build --float32 myprogram   # 32-bit floats
+```
+
+Integers and floats can usually be mixed (integers become floats).
+</Accordion>
+
+<Accordion title="What about Unicode support?">
+Shed Skin currently has limited Unicode support:
+
+- Only 1-byte characters are fully supported
+- UTF-8 multi-byte characters may not work correctly
+- ASCII text works fine
+
+For full Unicode support, keep string processing in pure Python and use Shed Skin for numerical/algorithmic code.
+</Accordion>
+
+## Extension Modules
+
+<Accordion title="How do extension modules work with CPython?">
+Shed Skin extension modules are shared libraries (.so on Linux, .pyd on Windows) that CPython can import:
+
+1. Shed Skin compiles your Python code to C++
+2. The C++ code is compiled with Python C API bindings
+3. The resulting module can be imported like any Python module
+4. Data is converted between Python and C++ representations on call boundaries
+
+See [Extension Modules](/guides/extension-modules) for details.
+</Accordion>
+
+<Accordion title="What types can be passed to/from extension modules?">
+Supported types:
+
+- **Scalars**: `int`, `float`, `complex`, `bool`, `str`, `bytes`, `bytearray`
+- **Containers**: `list`, `tuple`, `dict`, `set`
+- **Special**: `None`, instances of user-defined classes
+
+**Not supported**:
+- Functions/lambdas
+- Iterators/generators
+- Most standard library objects
+
+**Important**: Builtin types are fully copied on each call/return. Changes to builtin objects don't persist across boundaries.
+</Accordion>
+
+<Accordion title="Can multiple extension modules interact?">
+No, this is currently not supported. Each extension module is independent. If you need modules to interact, keep the interaction logic in pure Python that imports both modules.
+</Accordion>
+
+## Development
+
+<Accordion title="How can I debug compiled code?">
+1. **Test in CPython first**: Run with `python myprogram.py` to catch logic errors
+2. **Use assertions**: They're compiled unless you use `--noassert`
+3. **Enable bounds checking**: Don't use `--nobounds` during development
+4. **Use debug builds**: Default `Debug` build type includes debugging symbols
+5. **Use GDB/LLDB**: Debug the compiled binary like any C++ program
+6. **Print debugging**: Good old `print()` statements work
+
+See [Debugging](/guides/debugging) for more techniques.
+</Accordion>
+
+<Accordion title="How can I contribute to Shed Skin?">
+Contributions are welcome! See [Contributing](/resources/contributing) for:
+
+- How to set up the development environment
+- Testing procedures
+- Code contribution guidelines
+- Adding library module support
+- Documentation improvements
+
+Start with issues labeled ["easytask"](https://github.com/shedskin/shedskin/issues?q=is%3Aissue+is%3Aopen+label%3Aeasytask) on GitHub.
+</Accordion>
+
+<Accordion title="Where can I get help?">
+- **Documentation**: [Shed Skin Docs](https://shedskin.github.io/shedskin/)
+- **GitHub Issues**: [Report bugs or ask questions](https://github.com/shedskin/shedskin/issues)
+- **Examples**: [80+ example programs](https://github.com/shedskin/shedskin/tree/master/examples)
+- **Source Code**: Study the compiler internals on GitHub
+</Accordion>
+
+## Performance
+
+<Accordion title="Why is my compiled code slower than expected?">
+Common reasons:
+
+1. **Memory allocations**: Creating many small objects (lists, tuples, class instances)
+2. **Bounds checking**: Enabled by default, use `--nobounds` after testing
+3. **Suboptimal algorithm**: Shed Skin doesn't change your algorithm
+4. **Mixed int/float operations**: Can add conversion overhead
+5. **Extension module overhead**: Conversion of builtin types on each call
+
+See [Performance Tuning](/advanced/performance-tuning) for optimization strategies.
+</Accordion>
+
+<Accordion title="What optimization flags should I use?">
+For best performance:
+
+```bash
+shedskin build --nobounds --nowrap myprogram
+```
+
+- `--nobounds`: Disable array bounds checking (test first!)
+- `--nowrap`: Disable wrap-around checking for negative indices
+- `--int64`: Use if you need large integers
+- `--nogc`: Only for short programs (causes memory leaks)
+
+Also tune compiler flags in the `FLAGS` file for advanced optimization.
+</Accordion>
+
+<Accordion title="Can I use Shed Skin for parallel/concurrent code?">
+Shed Skin itself doesn't provide parallelism features, but you can:
+
+1. **Compile extension modules** and use Python's `multiprocessing`
+2. **Use OpenMP** in manually written C++ code integrated with Shed Skin
+3. **Run multiple processes** of the compiled binary
+
+The Boehm GC is thread-safe, so multi-threaded C++ code is possible with manual integration.
+</Accordion>

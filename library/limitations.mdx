@@ -1,0 +1,647 @@
+---
+title: Library Limitations
+description: Understanding what Python standard library features are not supported in Shed Skin and why
+---
+
+Shed Skin supports a subset of the Python standard library due to its static compilation model. This page explains what is not supported, why certain features cannot be supported, and suggests alternatives.
+
+## Fundamental Limitations
+
+### Dynamic Features
+
+Shed Skin requires static typing, which makes many dynamic Python features impossible to support.
+
+**Not Supported:**
+
+```python
+# eval and exec
+eval("2 + 2")                    # Dynamic code execution
+exec("x = 10")                   # Dynamic code execution
+
+# Dynamic attribute access
+getattr(obj, "method_name")      # Runtime attribute lookup
+hasattr(obj, "attr")             # Runtime attribute checking
+setattr(obj, "attr", value)      # Runtime attribute setting
+delattr(obj, "attr")             # Runtime attribute deletion
+
+# Runtime type checking
+isinstance(x, int)               # Type cannot be checked at runtime
+type(x)                          # Type introspection
+
+# Dynamic imports
+importlib.import_module("math")  # Runtime import
+__import__("sys")                # Runtime import
+```
+
+**Why:** These features require runtime type information and interpretation, which defeats the purpose of static compilation. Shed Skin determines all types at compile time.
+
+**Alternative:** Restructure code to use static patterns:
+
+```python
+# Instead of eval
+result = 2 + 2
+
+# Instead of getattr
+if condition:
+    result = obj.method1()
+else:
+    result = obj.method2()
+
+# Instead of isinstance (use polymorphism)
+class Base:
+    def process(self):
+        pass
+
+class Derived1(Base):
+    def process(self):
+        # Implementation 1
+        pass
+
+class Derived2(Base):
+    def process(self):
+        # Implementation 2
+        pass
+
+# Works with both types
+def handle(obj):
+    obj.process()
+```
+
+### Introspection and Metaprogramming
+
+**Not Supported:**
+
+```python
+import inspect
+
+# Function inspection
+inspect.getargspec(func)         # Get function arguments
+inspect.getsource(func)          # Get source code
+
+# Frame inspection
+inspect.currentframe()           # Get current stack frame
+
+# Module inspection
+inspect.getmembers(module)       # Get module members
+
+# Decorators with metadata
+@functools.wraps(f)
+def wrapper(*args, **kwargs):    # Decorator introspection
+    pass
+
+# Metaclasses
+class Meta(type):
+    pass
+
+class MyClass(metaclass=Meta):   # Custom metaclasses
+    pass
+```
+
+**Why:** Requires runtime introspection capabilities and dynamic type system.
+
+**Alternative:** Use static alternatives:
+
+```python
+# Simple decorators work (without introspection)
+def simple_decorator(func):
+    def wrapper(x, y):
+        print("Before")
+        result = func(x, y)
+        print("After")
+        return result
+    return wrapper
+
+@simple_decorator
+def add(a, b):
+    return a + b
+```
+
+## Unsupported Standard Library Modules
+
+The following categories of standard library modules are not supported:
+
+### All Dynamic and Introspection Modules
+
+- `importlib` - Dynamic imports
+- `inspect` - Runtime introspection
+- `ast` - Abstract syntax trees
+- `dis` - Bytecode disassembler
+- `types` - Dynamic type creation
+- `typing` - Type hints (not needed for Shed Skin)
+- `__future__` - Feature flags
+
+**Why:** These modules exist specifically for Python's dynamic runtime.
+
+### Debugging and Profiling
+
+- `pdb` - Python debugger
+- `cProfile`, `profile` - Python profiling
+- `trace` - Execution tracing
+- `traceback` - Stack trace formatting
+
+**Why:** Operate on Python bytecode and runtime state.
+
+**Alternative:** Use C++ debugging and profiling tools:
+
+```bash
+# Compile with debug symbols
+shedskin build program
+
+# Debug with gdb
+gdb build/program
+
+# Profile with gprof
+make program_prof
+./program_prof
+gprof program_prof
+
+# Or use gprof2dot for visualization
+gprof program_prof | gprof2dot.py | dot -Tpng -o output.png
+```
+
+### Serialization and Persistence
+
+- `pickle` - Object serialization
+- `shelve` - Persistent dictionary
+- `marshal` - Internal Python object serialization
+- `json` - JSON encoding/decoding (not yet supported)
+- `xml` - XML processing
+
+**Why:** Require dynamic type information and complex object graphs.
+
+**Alternative:** 
+
+1. Use CSV for simple tabular data (csv module is supported)
+2. Implement custom text-based formats
+3. Use Shed Skin extension module with Python's pickle:
+
+```python
+# Extension module: data_processor.py
+def process_data(numbers):
+    # Fast compiled processing
+    return [x * 2 for x in numbers]
+
+if __name__ == '__main__':
+    process_data([1, 2, 3])  # For type inference
+
+# Main Python program: main.py
+import pickle
+import data_processor
+
+# Load data with pickle
+with open('data.pkl', 'rb') as f:
+    data = pickle.load(f)
+
+# Process with compiled module
+result = data_processor.process_data(data)
+
+# Save result
+with open('result.pkl', 'wb') as f:
+    pickle.dump(result, f)
+```
+
+### Threading and Multiprocessing
+
+- `threading` - Thread-based parallelism
+- `multiprocessing` - Process-based parallelism (except when using extension modules)
+- `concurrent.futures` - High-level parallelism
+- `asyncio` - Asynchronous I/O
+
+**Why:** Complex runtime coordination and dynamic scheduling.
+
+**Alternative:**
+
+1. Use C++ threading directly in custom library code
+2. Use multiprocessing with extension modules:
+
+```python
+# Compile as extension module
+# fast_math.py
+def calculate(start, end):
+    total = 0.0
+    for i in range(start, end):
+        total += i * i
+    return total
+
+if __name__ == '__main__':
+    calculate(1, 100)
+
+# Main program
+from multiprocessing import Pool
+import fast_math
+
+def worker(args):
+    start, end = args
+    return fast_math.calculate(start, end)
+
+pool = Pool(4)
+results = pool.map(worker, [(0, 1000000), (1000000, 2000000),
+                             (2000000, 3000000), (3000000, 4000000)])
+print(sum(results))
+```
+
+### Network and Web Frameworks
+
+- `urllib`, `urllib2`, `urllib3` - URL handling
+- `http` - HTTP modules
+- `requests` - HTTP library (third-party)
+- `flask`, `django` - Web frameworks
+- `email` - Email handling
+- `smtplib` - SMTP protocol
+
+**Why:** Complex protocol handling, dynamic content, and extensive standard library dependencies.
+
+**Alternative:** Use `socket` module (partially supported) for low-level networking, or use extension modules with Python network libraries.
+
+### GUI Frameworks
+
+- `tkinter` - Tk GUI
+- `PyQt`, `PySide` - Qt bindings
+- `wxPython` - wxWidgets bindings
+- `pygame` - Game development
+
+**Why:** Large external dependencies and dynamic callback systems.
+
+**Alternative:** Compile performance-critical logic as extension module, use GUI in Python:
+
+```python
+# game_logic.py - compiled with Shed Skin
+class GameState:
+    def __init__(self):
+        self.score = 0
+        self.positions = [[0.0, 0.0] for _ in range(100)]
+    
+    def update(self, dt):
+        # Fast physics/game logic
+        for pos in self.positions:
+            pos[0] += dt * 10.0
+            pos[1] += dt * 5.0
+
+if __name__ == '__main__':
+    gs = GameState()
+    gs.update(0.016)
+
+# main.py - Python with GUI
+import pygame
+import game_logic
+
+state = game_logic.GameState()
+
+while running:
+    dt = clock.tick(60) / 1000.0
+    state.update(dt)  # Fast compiled logic
+    # Render with pygame...
+```
+
+### Database and ORM
+
+- `sqlite3` - SQLite database
+- `mysql` - MySQL database
+- `psycopg2` - PostgreSQL
+- `sqlalchemy` - SQL toolkit and ORM
+
+**Why:** Dynamic query building and complex type mapping.
+
+**Alternative:** Use extension module pattern with database operations in Python.
+
+## Partially Supported Modules
+
+Some modules have limited support. Here's what's missing:
+
+### collections
+
+**Not Supported:**
+- `namedtuple` - Named tuple factory (dynamic type creation)
+- `Counter` - Counting dictionary
+- `OrderedDict` - Ordered dictionary (regular dict maintains order)
+- `ChainMap` - Multiple dict views
+
+**Alternative:**
+
+```python
+# Instead of namedtuple
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+p = Point(10, 20)
+
+# Instead of Counter
+def count_items(items):
+    counts = {}
+    for item in items:
+        if item in counts:
+            counts[item] += 1
+        else:
+            counts[item] = 1
+    return counts
+```
+
+### functools
+
+**Not Supported:**
+- `partial` - Partial function application
+- `lru_cache` - Memoization decorator
+- `wraps` - Decorator metadata
+- `singledispatch` - Generic functions
+
+**Alternative:**
+
+```python
+# Instead of partial
+def multiply(x, y):
+    return x * y
+
+def double(x):
+    return multiply(x, 2)
+
+# Instead of lru_cache
+class FibCalculator:
+    def __init__(self):
+        self.cache = {}
+    
+    def fib(self, n):
+        if n in self.cache:
+            return self.cache[n]
+        if n <= 1:
+            result = n
+        else:
+            result = self.fib(n-1) + self.fib(n-2)
+        self.cache[n] = result
+        return result
+```
+
+### itertools
+
+**Not Supported:**
+- `starmap` - Apply function to iterable of tuples
+
+**Alternative:**
+
+```python
+# Instead of starmap
+def multiply_pairs(pairs):
+    results = []
+    for a, b in pairs:
+        results.append(a * b)
+    return results
+```
+
+### os
+
+**Not Supported:**
+- `os.walk` - Directory tree traversal
+- `os.popen` - Pipe to command
+- `os.fork` - Process forking
+- Most process management functions
+- Environment variable manipulation (limited)
+
+**Supported:**
+- Basic file operations: `os.remove()`, `os.rename()`, `os.listdir()`
+- Directory operations: `os.mkdir()`, `os.rmdir()`, `os.getcwd()`, `os.chdir()`
+- `os.path` - Fully supported
+- `os.system()` - Run shell command
+
+### sys
+
+**Not Supported:**
+- `sys.modules` - Loaded modules
+- `sys.path` - Module search path
+- Most introspection attributes
+- `sys.settrace()` - Debug tracing
+
+**Supported:**
+- `sys.argv` - Command-line arguments
+- `sys.exit()` - Exit program
+- `sys.stdin/stdout/stderr` - Standard streams
+- `sys.maxsize` - Largest integer
+
+### datetime
+
+**Status:** Partially supported but not well tested
+
+**Known Issues:**
+- May have edge cases with timezone handling
+- Some methods might not work correctly
+- Limited strftime/strptime support
+
+**Alternative:** Use `time` module for simple time operations:
+
+```python
+import time
+
+start = time.time()
+# ... do work ...
+elapsed = time.time() - start
+```
+
+## Unicode and Text Encoding
+
+**Limitation:** Currently restricted to 1-byte characters (ASCII, Latin-1).
+
+**Not Supported:**
+- Full Unicode/UTF-8 text processing
+- Multi-byte character encodings
+- `unicodedata` module
+
+**What Works:**
+- ASCII text (0-127)
+- Latin-1 text (0-255)
+- Binary data via bytes/bytearray
+
+**Alternative:**
+
+1. Process only ASCII/Latin-1 text
+2. Use extension module with Python's unicode:
+
+```python
+# Extension module: text_processing.py
+def process_tokens(tokens):
+    # tokens is list of ASCII strings
+    results = []
+    for token in tokens:
+        if len(token) > 3:
+            results.append(token.upper())
+    return results
+
+if __name__ == '__main__':
+    process_tokens(['hello', 'hi', 'world'])
+
+# Main Python program
+import text_processing
+
+# Handle Unicode in Python
+text = "Hello, 世界"  # Unicode text
+tokens = text.split()
+
+# Convert to ASCII for processing
+ascii_tokens = [t.encode('ascii', errors='ignore').decode() 
+                for t in tokens if t.isascii()]
+
+# Process with compiled module
+results = text_processing.process_tokens(ascii_tokens)
+```
+
+## Nested Functions and Closures
+
+**Not Supported:**
+
+```python
+def outer(x):
+    def inner(y):        # Nested function
+        return x + y     # Closure over x
+    return inner
+
+f = outer(10)
+print(f(5))              # ERROR in Shed Skin
+```
+
+**Why:** Closures require capturing environment and dynamic function objects.
+
+**Alternative:**
+
+```python
+# Use class to maintain state
+class Adder:
+    def __init__(self, x):
+        self.x = x
+    
+    def add(self, y):
+        return self.x + y
+
+adder = Adder(10)
+print(adder.add(5))      # 15
+
+# Or use module-level functions
+x_value = 0
+
+def set_x(x):
+    global x_value
+    x_value = x
+
+def add_to_x(y):
+    return x_value + y
+
+set_x(10)
+print(add_to_x(5))       # 15
+```
+
+## Argument Unpacking
+
+**Not Supported:**
+
+```python
+def func(*args, **kwargs):       # Variable arguments
+    pass
+
+def func(a, b):
+    pass
+
+args = (1, 2)
+func(*args)                        # Argument unpacking
+
+kwargs = {'a': 1, 'b': 2}
+func(**kwargs)                     # Keyword unpacking
+```
+
+**Why:** Requires dynamic argument handling.
+
+**Alternative:**
+
+```python
+# Fixed number of arguments
+def func(a, b, c=0, d=0):
+    # Optional arguments with defaults
+    pass
+
+# Or pass container
+def func(args):
+    a, b = args[0], args[1]
+    # Process...
+    pass
+
+func([1, 2])
+```
+
+## Arbitrary-Size Integers
+
+**Limitation:** Integers are fixed-size (32-bit, 64-bit, or 128-bit).
+
+```python
+# In CPython - arbitrary precision
+n = 2 ** 1000  # Very large number
+
+# In Shed Skin - overflow
+n = 2 ** 1000  # Will overflow based on int size
+```
+
+**Alternative:**
+
+1. Use `--int64` or `--int128` for larger range
+2. Use float for approximate large numbers
+3. Implement custom bigint if needed (complex)
+4. Use extension module with Python's int:
+
+```python
+# Keep large number operations in Python
+# Use extension module for computations within range
+```
+
+## Exception Handling Limitations
+
+**Limitation:** Cannot catch exception by dynamic type
+
+```python
+# This pattern doesn't work well
+exception_type = ValueError
+try:
+    do_something()
+except exception_type:   # Dynamic exception type
+    pass
+```
+
+**Alternative:**
+
+```python
+# Use explicit exception types
+try:
+    do_something()
+except ValueError:
+    pass
+except KeyError:
+    pass
+```
+
+## Summary
+
+| Feature Category | Support Level | Alternative |
+|-----------------|---------------|-------------|
+| Basic types & operations | Full | - |
+| List, dict, set | Full | - |
+| File I/O | Full | - |
+| Math operations | Full | - |
+| Regular expressions | Full (PCRE) | - |
+| Random numbers | Full | - |
+| Date/time | Partial | Use time module |
+| Networking | Minimal | Extension modules |
+| Threading | No | C++ threads or extension modules |
+| Dynamic features | No | Static alternatives |
+| Unicode | Limited | ASCII/Latin-1 or extension modules |
+| Serialization | No | CSV or extension modules |
+| GUI frameworks | No | Extension modules |
+| Web frameworks | No | Extension modules |
+
+## Best Practices
+
+1. **Compile computational core:** Write performance-critical algorithms in Shed Skin-compatible Python
+2. **Use extension modules:** Keep dynamic/unsupported features in main Python program
+3. **Static patterns:** Design code with static typing in mind
+4. **Test thoroughly:** Ensure type inference succeeds on all code paths
+5. **Profile first:** Verify bottlenecks before porting to Shed Skin
+
+## See Also
+
+- [Supported Modules](/library/supported-modules) - What is supported
+- [Built-in Types](/library/builtin-types) - Type reference
+- [Creating Extension Modules](/guides/extension-modules) - How to use Shed Skin with Python

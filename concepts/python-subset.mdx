@@ -1,0 +1,367 @@
+---
+title: Python subset
+description: Understanding which Python features are supported by Shed Skin
+---
+
+Shed Skin supports a substantial subset of Python, but not all features can be compiled to C++. This page documents what works, what doesn't, and workarounds where available.
+
+## Unsupported features
+
+The following Python features are not supported and will likely never be supported due to their dynamic nature:
+
+### Dynamic evaluation and introspection
+
+```python
+# Not supported: eval, exec, compile
+eval("1 + 1")  # Error
+exec("x = 1")  # Error
+
+# Not supported: getattr, setattr, hasattr, delattr
+getattr(obj, 'attribute')  # Error
+setattr(obj, 'attr', value)  # Error
+hasattr(obj, 'method')  # Error
+
+# Not supported: isinstance, issubclass (with exceptions)
+isinstance(x, int)  # Error
+```
+
+<Note>
+These features rely on runtime introspection which cannot be determined at compile time. Since Shed Skin must generate static C++ code, it cannot support these dynamic operations.
+</Note>
+
+### Argument packing and unpacking
+
+```python
+# Not supported: *args and **kwargs
+def function(*args):  # Error
+    pass
+
+def function(**kwargs):  # Error
+    pass
+
+# Not supported: Unpacking in calls
+args = [1, 2, 3]
+function(*args)  # Error
+```
+
+**Workaround:** Use explicit parameter lists or container arguments:
+
+```python
+# Good: Use explicit parameters
+def function(arg1, arg2, arg3):
+    pass
+
+# Good: Pass a list directly
+def function(args):
+    for arg in args:
+        # process arg
+        pass
+
+function([1, 2, 3])
+```
+
+### Multiple inheritance
+
+```python
+# Not supported: Multiple base classes
+class Child(Parent1, Parent2):  # Error
+    pass
+```
+
+**Workaround:** Use composition or restructure your class hierarchy:
+
+```python
+# Good: Single inheritance with composition
+class Child(Parent1):
+    def __init__(self):
+        Parent1.__init__(self)
+        self.parent2 = Parent2()
+```
+
+### Nested functions and classes
+
+```python
+# Not supported: Nested function definitions
+def outer():
+    def inner():  # Error
+        pass
+    return inner
+
+# Not supported: Nested class definitions
+class Outer:
+    class Inner:  # Error
+        pass
+```
+
+**Workaround:** Move nested definitions to module level:
+
+```python
+# Good: Define at module level
+def inner_function():
+    pass
+
+def outer():
+    return inner_function
+
+class InnerClass:
+    pass
+
+class Outer:
+    def __init__(self):
+        self.inner = InnerClass()
+```
+
+### Closures
+
+```python
+# Not supported: Closures capturing outer scope
+def make_adder(n):
+    def adder(x):
+        return x + n  # Error: captures 'n' from outer scope
+    return adder
+```
+
+**Workaround:** Use classes to maintain state:
+
+```python
+# Good: Use a class instead
+class Adder:
+    def __init__(self, n):
+        self.n = n
+    
+    def add(self, x):
+        return x + self.n
+
+def make_adder(n):
+    return Adder(n)
+
+adder = make_adder(5)
+print(adder.add(3))  # 8
+```
+
+### Arbitrary-size arithmetic
+
+```python
+# Integers are limited to 32-bit by default
+x = 10 ** 100  # May overflow
+```
+
+<Note>
+Integers become 32-bit signed integers by default on most architectures. Use the `--int64` or `--int128` command-line options for larger integers.
+</Note>
+
+**Workaround:** Use command-line options for larger integers:
+
+```bash
+shedskin build --int64 myprogram.py
+```
+
+### Unicode limitations
+
+```python
+# Limited to 1-byte characters (Latin-1)
+s = "Hello, 世界"  # May not work correctly
+```
+
+Shed Skin currently has restricted Unicode support, effectively supporting only 1-byte characters. Full UTF-8 support is not yet implemented.
+
+### Inheritance from builtins
+
+```python
+# Not supported: Inheriting from builtin types
+class MyList(list):  # Error (except Exception and object)
+    pass
+
+class MyDict(dict):  # Error
+    pass
+```
+
+**Exception:** You can inherit from `Exception` and `object`:
+
+```python
+# Good: Exception inheritance is allowed
+class MyError(Exception):
+    pass
+
+# Good: object inheritance is allowed (but usually implicit)
+class MyClass(object):
+    pass
+```
+
+## Partially supported features
+
+Some features work with limitations:
+
+### Class attributes
+
+Class attributes must always be accessed using the class name, not through instances:
+
+```python
+class MyClass:
+    class_attr = 42
+    
+    def method(self):
+        # Bad: Access through instance
+        x = self.class_attr  # Error
+        
+        # Good: Access through class name
+        x = MyClass.class_attr
+```
+
+```python
+# Good: Static method access
+class Utils:
+    @staticmethod
+    def helper():
+        return "help"
+
+# Must use class name
+result = Utils.helper()
+Utils.some_static_method()
+```
+
+<Warning>
+Always use the explicit class name when accessing class attributes or static methods. Instance-based access will cause compilation errors.
+</Warning>
+
+### Function references
+
+Function references can be passed around, but with restrictions:
+
+```python
+# Good: Function references
+var = lambda x, y: x + y
+var(1, 2)
+
+def some_func(a, b):
+    return a * b
+
+var = some_func
+var(3, 4)
+```
+
+```python
+# Bad: Method references
+class MyClass:
+    def method(self):
+        pass
+
+obj = MyClass()
+var = obj.method  # Error: method references not supported
+```
+
+```python
+# Bad: Class references
+var = MyClass  # Error: class references not supported
+```
+
+```python
+# Bad: Functions in containers
+funcs = [some_func, other_func]  # Error: cannot contain functions
+```
+
+<Note>
+While lambda functions and function references work, they cannot be stored in containers (lists, dicts, etc.) and method/class references are not supported.
+</Note>
+
+## Block comments
+
+Shed Skin provides a special syntax for commenting out code that shouldn't be compiled:
+
+```python
+print("This will be compiled")
+
+#{
+import matplotlib.pyplot as plt
+plt.plot([1, 2, 3], [4, 5, 6])
+plt.show()
+#}
+
+print("This will also be compiled")
+```
+
+Code between `#{` and `#}` is completely ignored by Shed Skin. This is useful for:
+
+- Plotting and visualization code
+- Debugging outputs using unsupported libraries
+- Development utilities not needed in production
+
+<Accordion title="When to use block comments">
+Use block comments when you want to:
+
+1. Keep visualization code in your source for development
+2. Mix compiled and uncompiled code in the same file
+3. Test your code with CPython before compiling
+
+The code inside block comments will execute normally when run with CPython, but Shed Skin will skip it during compilation.
+</Accordion>
+
+## Simulating unsupported features
+
+### Simulating dict-like structures
+
+Since you can't use actual dictionaries with mixed value types, use a class instead:
+
+```python
+# Instead of this (doesn't work):
+# config = {'name': 'test', 'count': 42, 'items': [1, 2, 3]}
+
+# Use this:
+class Config:
+    pass
+
+config = Config()
+config.name = 'test'
+config.count = 42
+config.items = [1, 2, 3]
+```
+
+### Simulating mixed tuples
+
+For tuples with more than 2 elements of different types:
+
+```python
+# Instead of this (doesn't work):
+# record = (1, 'name', 3.14, [1, 2])
+
+# Use this:
+class Record:
+    def __init__(self, id, name, value, items):
+        self.id = id
+        self.name = name
+        self.value = value
+        self.items = items
+
+record = Record(1, 'name', 3.14, [1, 2])
+```
+
+## Standard library limitations
+
+Only about 30 standard library modules are supported (see [Supported Modules](/library/supported-modules) for the complete list). Common unsupported modules include:
+
+- `pickle` / `json` (serialization)
+- `threading` / `multiprocessing` (concurrency)
+- `sqlite3` (databases)
+- GUI frameworks (tkinter, PyQt, etc.)
+
+<Note>
+You can still use unsupported modules in combination with Shed Skin by:
+
+1. Compiling your compute-intensive code as an extension module
+2. Importing and using that module from regular Python
+3. Using any Python library in the main program
+
+See [Extension modules](/guides/extension-modules) for details.
+</Note>
+
+## Tips for staying within the subset
+
+1. **Start simple**: Begin with a small, focused module
+2. **Avoid dynamic features**: Stick to straightforward, static patterns
+3. **Test incrementally**: Compile frequently to catch issues early
+4. **Use classes for state**: Replace closures and nested functions with classes
+5. **Explicit over implicit**: Use clear, direct code rather than clever tricks
+
+<Warning>
+If you try to use an unsupported feature, Shed Skin will typically report an error during compilation. Read error messages carefully—they often suggest workarounds.
+</Warning>

@@ -1,0 +1,355 @@
+---
+title: How it works
+description: Understanding Shed Skin's compilation pipeline and architecture
+---
+
+Shed Skin transforms Python code into optimized C++ code through a sophisticated compilation pipeline. Understanding this process helps you write code that compiles efficiently and runs fast.
+
+## Compilation pipeline
+
+The compilation process consists of several distinct phases:
+
+```mermaid
+graph LR
+    A[Python Source] --> B[Parse AST]
+    B --> C[Build Constraint Graph]
+    C --> D[Type Inference]
+    D --> E[Generate C++]
+    E --> F[Compile to Binary]
+    F --> G[Executable/Extension]
+```
+
+### Phase 1: Parse Python source
+
+Shed Skin begins by parsing your Python source code into an Abstract Syntax Tree (AST) using Python's built-in `ast` module:
+
+```python
+# Your code
+def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+```
+
+The parser reads this code and creates a tree structure representing all the syntactic elements—functions, control flow, expressions, etc.
+
+<Note>
+Shed Skin uses the same AST format as Python itself, which is why it requires compatible Python versions (3.8-3.14) to run.
+</Note>
+
+### Phase 2: Build constraint graph
+
+Next, Shed Skin builds a **constraint graph** representing how types flow through your program. This graph tracks:
+
+- Variable assignments and uses
+- Function calls and returns
+- Data structure operations
+- Class relationships
+
+Each node in the graph represents a program location where a type is used, and edges represent type flow:
+
+```python
+x = 5          # Node: x gets an int type
+y = x + 3      # Edge: int flows from x to the + operation
+return y       # Edge: int flows from y to return value
+```
+
+The constraint graph is the foundation for type inference.
+
+### Phase 3: Type inference
+
+This is the most complex phase. Shed Skin uses sophisticated algorithms to determine the type of every variable, expression, and function in your program.
+
+#### Type inference algorithms
+
+Shed Skin combines two powerful type inference techniques:
+
+**Cartesian Product Algorithm (CPA)**: Handles function polymorphism
+- When a function is called with different argument types, CPA creates specialized versions
+- Each version has concrete types for that specific usage
+- Prevents type imprecision from different call sites mixing together
+
+**Iterative Flow Analysis (IFA)**: Handles data polymorphism  
+- When container types (lists, classes) are used polymorphically, IFA creates specialized versions
+- Tracks which specialized version is used at each allocation site
+- Allows the same class or list to have different element types in different contexts
+
+Example of polymorphism requiring specialization:
+
+```python
+def identity(x):
+    return x
+
+# Two call sites with different types
+a = identity(5)       # int version needed
+b = identity("hello") # str version needed
+```
+
+Shed Skin creates two specialized versions of `identity`—one for integers, one for strings.
+
+#### Iterative dataflow analysis process
+
+Type inference proceeds iteratively:
+
+**Forward phase:**
+1. Propagate known types through the constraint graph
+2. Create function specializations using CPA where needed
+3. Seed allocation points with initial types
+
+**Backward phase:**
+1. Identify points where type precision is lost (type mixing)
+2. Trace backward through the graph to find related allocation points  
+3. Create specialized versions of classes/containers to separate types
+4. Distribute specialized versions across allocation points
+
+**Cleanup:**
+- If imprecision points remain, reset and restart analysis with new specializations
+- Continue until no imprecision remains or further analysis won't help
+- Build final type information for code generation
+
+This process maintains type precision while preventing combinatorial explosion of specializations.
+
+<Accordion title="Why iterative analysis?">
+A naive approach would create all possible specializations up front, but this leads to exponential blowup. Instead, Shed Skin incrementally analyzes small sets of functions and allocation sites, only creating specializations when actual imprecision is detected.
+
+This is similar to how JIT compilers work—specialize only what's needed, when it's needed.
+</Accordion>
+
+### Phase 4: Generate C++ code
+
+Once types are known, Shed Skin generates C++ code by traversing the AST and emitting corresponding C++ constructs:
+
+```python
+# Python input
+def add(x, y):
+    return x + y
+
+result = add(5, 3)
+```
+
+```cpp
+// Generated C++ (simplified)
+int add(int x, int y) {
+    return (x + y);
+}
+
+int result = add(5, 3);
+```
+
+The code generator handles:
+
+- **Template generation**: For polymorphic functions
+- **Virtual method tables**: For class hierarchies  
+- **Type declarations**: Converting Python types to C++ types
+- **Memory management**: Integration with Boehm GC
+- **Exception handling**: Python exceptions to C++ exceptions
+- **Module structure**: Namespaces and includes
+
+### Phase 5: Compile C++ to binary
+
+The generated C++ code is compiled using a C++ compiler (typically GCC or Clang):
+
+```bash
+g++ -O2 -o program program.cpp -lgc -lpcre2-8
+```
+
+This produces either:
+- A standalone executable (for programs)
+- A Python extension module (for libraries)
+
+## Type inference deep dive
+
+### Type seeds
+
+Type inference starts from **type seeds**—places where types are explicitly known:
+
+```python
+x = 42              # Seed: literal int
+y = "hello"         # Seed: literal str
+z = [1, 2, 3]       # Seed: list of int
+obj = MyClass()     # Seed: instance of MyClass
+```
+
+From these seeds, types propagate through the program:
+
+```python
+x = 42
+a = x           # a inferred as int (flows from x)
+b = a + 5       # b inferred as int (flows from a)
+print(b)        # print parameter inferred as int (flows from b)
+```
+
+### Type propagation
+
+Types flow through the constraint graph along edges:
+
+- **Assignments**: Type flows from right side to left side
+- **Function calls**: Argument types flow to parameters; return types flow back
+- **Operations**: Operand types determine result types
+- **Containers**: Element types determine container types
+
+### Handling polymorphism
+
+When a function is used with multiple types:
+
+```python
+def process(items):
+    result = []
+    for item in items:
+        result.append(item * 2)
+    return result
+
+# Called with two different types
+ints = process([1, 2, 3])       # list of int
+strs = process(['a', 'b', 'c']) # list of str
+```
+
+Shed Skin creates two specialized versions:
+
+```cpp
+list<int>* process_int(list<int>* items) {
+    // int version
+}
+
+list<str>* process_str(list<str>* items) {  
+    // str version
+}
+```
+
+Each call site uses the appropriate specialized version.
+
+## Memory management
+
+Shed Skin integrates the **Boehm-Demers-Weiser garbage collector** for automatic memory management.
+
+### Boehm GC integration
+
+The Boehm GC is a conservative garbage collector for C/C++:
+
+- **Conservative scanning**: Treats anything that looks like a pointer as a pointer
+- **Non-moving**: Objects stay at the same memory address
+- **Thread-safe**: Supports multi-threaded programs (with appropriate configuration)
+- **Incremental**: Can run in incremental mode to reduce pause times
+
+### Memory allocation
+
+All Python objects are allocated using the GC:
+
+```cpp
+// List allocation (simplified)
+list<int>* mylist = new (GC) list<int>();
+
+// Class instance allocation  
+MyClass* obj = new (GC) MyClass();
+```
+
+The `(GC)` placement new syntax tells the GC to manage this memory.
+
+### When GC runs
+
+The GC runs automatically when:
+- Memory pressure increases
+- Explicit collection is requested via `gc.collect()`
+- A threshold of allocated memory is exceeded
+
+You can disable GC entirely with `--nogc` for maximum performance, but this means memory leaks:
+
+```bash
+shedskin build --nogc program.py
+```
+
+<Warning>
+Disabling GC can improve performance but will leak memory for long-running programs. Only disable GC for short-lived programs or when you've verified there are no leaks.
+</Warning>
+
+## Performance characteristics
+
+### Why C++ is faster
+
+Shed Skin generates fast code because:
+
+1. **Static types**: No runtime type checking or boxing/unboxing
+2. **Direct calls**: Function calls compile to direct C++ calls, not dictionary lookups
+3. **Inlining**: C++ compiler can inline small functions  
+4. **Memory layout**: Objects use efficient C++ memory layout, not Python dicts
+5. **Native integers**: Integer operations use CPU instructions directly
+6. **Loop optimization**: C++ compiler optimizes loops aggressively
+
+### Performance trade-offs
+
+**Fast paths:**
+- Numeric computations
+- Loop-heavy code
+- String operations (except Unicode)
+- Container operations (list, dict, set)
+
+**Slower paths:**  
+- Extension module overhead (crossing Python/C++ boundary)
+- Memory allocation (Boehm GC has some overhead)
+- Exception handling (comparable to C++ exceptions)
+
+### Optimization tips
+
+Shed Skin provides several compiler flags to optimize further:
+
+```bash
+# Disable bounds checking (big speedup for indexing-heavy code)
+shedskin build --nobounds program.py
+
+# Disable assert statements
+shedskin build --noassert program.py
+
+# Disable wrap-around checking
+shedskin build --nowrap program.py
+```
+
+See [Performance optimization](/guides/optimization) for more tips.
+
+## Scalability limitations
+
+Shed Skin's type inference doesn't scale well beyond several thousand lines of code:
+
+- **Largest successful program**: ~6,000 lines (measured with sloccount)
+- **Reason**: Constraint graph grows large; analysis becomes slow
+- **Workaround**: Split large programs into multiple modules
+
+<Note>
+For larger projects, compile performance-critical modules separately as extension modules, then import them from regular Python code.
+</Note>
+
+## Architecture overview
+
+Key modules in Shed Skin's codebase:
+
+- **`shedskin.graph`**: Builds the constraint graph from the AST
+- **`shedskin.infer`**: Performs type inference (CPA + IFA)  
+- **`shedskin.cpp`**: Generates C++ code from typed AST
+- **`shedskin.python`**: Python type models (Class, Function, Variable, etc.)
+- **`shedskin.config`**: Global compiler configuration
+- **`shedskin.error`**: Error reporting and diagnostics
+
+The compiler pipeline orchestrates these modules:
+
+```
+AST → graph → infer → cpp → C++ compiler → Binary
+```
+
+## Further reading
+
+For deep technical details:
+
+- **Ole Agesen's PhD thesis**: Describes the Cartesian Product Algorithm
+- **John Plevyak's work**: Describes Iterative Flow Analysis  
+- **Mark Dufour's MSc thesis**: Describes Shed Skin's implementation in detail
+- **Source code**: `shedskin/infer.py` and `shedskin/graph.py` contain extensive documentation
+
+<Accordion title="Learning from generated code">
+One of the best ways to understand Shed Skin is to look at the C++ code it generates:
+
+```bash
+shedskin translate myprogram.py
+cat myprogram.cpp
+```
+
+The generated code is readable and includes comments. Seeing how your Python constructs map to C++ will deepen your understanding of the compilation process.
+</Accordion>
