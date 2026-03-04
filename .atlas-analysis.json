@@ -1,0 +1,105 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Shed Skin",
+  "projectDescription": "A restricted-Python-to-C++ compiler that translates implicitly statically typed Python programs into optimized C++ code.",
+  "theme": "aspen",
+  "primaryColor": "#3178C6",
+  "lightColor": "#5B9BD5",
+  "darkColor": "#1E5A8E",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/typing-restrictions",
+              "concepts/python-subset",
+              "concepts/how-it-works"
+            ]
+          },
+          {
+            "group": "CLI Reference",
+            "pages": [
+              "cli/overview",
+              "cli/build",
+              "cli/translate",
+              "cli/options"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/writing-compatible-code",
+              "guides/extension-modules",
+              "guides/optimization",
+              "guides/debugging"
+            ]
+          },
+          {
+            "group": "Library Support",
+            "pages": [
+              "library/supported-modules",
+              "library/builtin-types",
+              "library/limitations"
+            ]
+          },
+          {
+            "group": "Examples",
+            "pages": [
+              "examples/overview",
+              "examples/benchmarks",
+              "examples/real-world"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/type-inference",
+              "advanced/c++-integration",
+              "advanced/performance-tuning"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/troubleshooting",
+              "resources/faq",
+              "resources/contributing",
+              "resources/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Translates restricted Python to optimized C++",
+    "Type inference for implicit static typing",
+    "Generates standalone executables or extension modules",
+    "Speedups of 1-100x over CPython",
+    "Supports ~30 standard library modules",
+    "Boehm garbage collector integration"
+  ],
+  "publicApiSurface": [
+    "shedskin build <module>",
+    "shedskin translate <module>",
+    "shedskin run <module>",
+    "shedskin runtests",
+    "--extmod - Generate extension module",
+    "--nobounds - Disable bounds checking",
+    "--nowrap - Disable wrap-around checking",
+    "--int64 - Use 64-bit integers",
+    "--float32 - Use 32-bit floats",
+    "Shedskin class (programmatic interface)"
+  ]
+}
